@@ -1,10 +1,12 @@
-import { Book, VocabularyCard, Position, TranslationCache } from '@polybook/shared';
+import * as Crypto from 'expo-crypto';
+import { Book, VocabularyCard, Position, TranslationCache, BookContent } from '@polybook/shared';
 
 const STORAGE_KEYS = {
   BOOKS: 'polybook_books',
   POSITIONS: 'polybook_positions',
   VOCABULARY: 'polybook_vocabulary',
   TRANSLATIONS: 'polybook_translations',
+  BOOK_CONTENT: 'polybook_book_content',
 };
 
 class WebDatabaseService {
@@ -273,6 +275,50 @@ class WebDatabaseService {
       return JSON.parse(localStorage.getItem(STORAGE_KEYS.TRANSLATIONS) || '{}');
     } catch (error) {
       console.error('Error parsing stored translations:', error);
+      return {};
+    }
+  }
+
+  // Book content operations
+  async saveBookContent(bookContent: Omit<BookContent, 'id'>): Promise<string> {
+    const id = Crypto.randomUUID();
+    const stored = this.getStoredBookContent();
+    
+    const content: BookContent = {
+      id,
+      ...bookContent
+    };
+
+    stored[bookContent.bookId] = content;
+    localStorage.setItem(STORAGE_KEYS.BOOK_CONTENT, JSON.stringify(stored));
+    
+    return id;
+  }
+
+  async getBookContent(bookId: string): Promise<BookContent | null> {
+    const stored = this.getStoredBookContent();
+    const content = stored[bookId];
+    
+    if (!content) return null;
+
+    // Convert date strings back to Date objects
+    return {
+      ...content,
+      parsedAt: new Date(content.parsedAt)
+    };
+  }
+
+  async deleteBookContent(bookId: string): Promise<void> {
+    const stored = this.getStoredBookContent();
+    delete stored[bookId];
+    localStorage.setItem(STORAGE_KEYS.BOOK_CONTENT, JSON.stringify(stored));
+  }
+
+  private getStoredBookContent(): Record<string, BookContent> {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEYS.BOOK_CONTENT) || '{}');
+    } catch (error) {
+      console.error('Error parsing stored book content:', error);
       return {};
     }
   }

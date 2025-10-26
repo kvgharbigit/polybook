@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
-import { Book, VocabularyCard, Position, TranslationCache } from '@polybook/shared';
+import * as Crypto from 'expo-crypto';
+import { Book, VocabularyCard, Position, TranslationCache, BookContent } from '@polybook/shared';
 
 // Conditional import for SQLite (only on native platforms)
 let SQLite: any = null;
@@ -68,6 +69,18 @@ class DatabaseService {
         y_offset REAL NOT NULL DEFAULT 0,
         progress REAL NOT NULL DEFAULT 0,
         updated_at INTEGER NOT NULL,
+        FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+      );
+
+      -- Book content table
+      CREATE TABLE IF NOT EXISTS book_content (
+        id TEXT PRIMARY KEY,
+        book_id TEXT NOT NULL UNIQUE,
+        content TEXT NOT NULL,
+        word_count INTEGER NOT NULL DEFAULT 0,
+        estimated_reading_time INTEGER NOT NULL DEFAULT 0,
+        parsed_at INTEGER NOT NULL,
+        content_version TEXT NOT NULL DEFAULT '1.0',
         FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
       );
 
@@ -352,6 +365,58 @@ class DatabaseService {
     await this.db.runAsync(
       'DELETE FROM translation_cache WHERE created_at < ?',
       [cutoff]
+    );
+  }
+
+  // Book content operations
+  async saveBookContent(bookContent: Omit<BookContent, 'id'>): Promise<string> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const id = Crypto.randomUUID();
+
+    await this.db.runAsync(`
+      INSERT OR REPLACE INTO book_content (id, book_id, content, word_count, estimated_reading_time, parsed_at, content_version)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, [
+      id,
+      bookContent.bookId,
+      bookContent.content,
+      bookContent.wordCount,
+      bookContent.estimatedReadingTime,
+      bookContent.parsedAt.getTime(),
+      bookContent.contentVersion
+    ]);
+
+    return id;
+  }
+
+  async getBookContent(bookId: string): Promise<BookContent | null> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = await this.db.getFirstAsync(
+      'SELECT * FROM book_content WHERE book_id = ?',
+      [bookId]
+    ) as any;
+
+    if (!result) return null;
+
+    return {
+      id: result.id,
+      bookId: result.book_id,
+      content: result.content,
+      wordCount: result.word_count,
+      estimatedReadingTime: result.estimated_reading_time,
+      parsedAt: new Date(result.parsed_at),
+      contentVersion: result.content_version
+    };
+  }
+
+  async deleteBookContent(bookId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    await this.db.runAsync(
+      'DELETE FROM book_content WHERE book_id = ?',
+      [bookId]
     );
   }
 

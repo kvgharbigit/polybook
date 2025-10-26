@@ -1,24 +1,138 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '../navigation/SimpleNavigator';
+import { useAppStore } from '../store/appStore';
+import { ContentParser } from '../services/contentParser';
+import { db } from '../services/databaseInterface';
 
 export default function ReaderScreen() {
   const { navigationState, goBack } = useNavigation();
   const { id } = navigationState.params || { id: '1' };
+  
+  const [content, setContent] = useState<string>('');
+  const [bookTitle, setBookTitle] = useState<string>('Loading...');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  const books = useAppStore(state => state.books);
 
-  // Mock book content - will be replaced with actual book parsing
-  const mockContent = `
-    En un lugar de la Mancha, de cuyo nombre no quiero acordarme, no ha mucho tiempo que vivía un hidalgo de los de lanza en astillero, adarga antigua, rocín flaco y galgo corredor.
+  useEffect(() => {
+    loadBookContent();
+  }, [id]);
 
-    Una olla de algo más vaca que carnero, salpicón las más noches, duelos y quebrantos los sábados, lentejas los viernes, algún palomino de añadidura los domingos, consumían las tres partes de su hacienda.
+  const loadBookContent = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
 
-    El resto la llevaban sayo de velarte, calzas de velludo para las fiestas con sus pantuflos de lo mismo, los días de entre semana se honraba con su vellori de lo más fino.
-  `;
+      // Find the book
+      const book = books.find(b => b.id === id);
+      if (!book) {
+        setError('Book not found');
+        return;
+      }
+
+      setBookTitle(book.title);
+
+      // Check if content is already cached
+      let bookContent = await db.getBookContent(book.id);
+      
+      if (!bookContent) {
+        // Parse the book content for the first time
+        console.log('Parsing book content for:', book.title);
+        
+        try {
+          const parsed = await ContentParser.parseFile(book.filePath, book.format);
+          
+          // Save to database
+          bookContent = {
+            bookId: book.id,
+            content: parsed.content,
+            wordCount: parsed.wordCount,
+            estimatedReadingTime: parsed.estimatedReadingTime,
+            parsedAt: new Date(),
+            contentVersion: '1.0'
+          };
+          
+          await db.saveBookContent(bookContent);
+          console.log('Book content parsed and cached successfully');
+        } catch (parseError) {
+          console.error('Error parsing book content:', parseError);
+          setError('Failed to parse book content. Please try again.');
+          return;
+        }
+      }
+
+      setContent(bookContent.content);
+    } catch (error) {
+      console.error('Error loading book content:', error);
+      setError('Failed to load book content');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleWordTap = (word: string) => {
     console.log('Tapped word:', word);
     // TODO: Implement word translation lookup
+  };
+
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#3498db" />
+          <Text style={styles.loadingText}>Parsing book content...</Text>
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorTitle}>Error Loading Book</Text>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadBookContent}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (!content) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>No content available</Text>
+        </View>
+      );
+    }
+
+    return (
+      <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.textContainer}>
+          {content.split(/(\s+)/).map((segment, index) => {
+            // Check if it's a word (not whitespace)
+            const isWord = segment.trim().length > 0 && !/^\s+$/.test(segment);
+            
+            if (isWord) {
+              return (
+                <TouchableOpacity 
+                  key={index}
+                  onPress={() => handleWordTap(segment.trim())}
+                  style={styles.wordContainer}
+                >
+                  <Text style={styles.word}>{segment}</Text>
+                </TouchableOpacity>
+              );
+            } else {
+              // Render whitespace as is
+              return <Text key={index} style={styles.word}>{segment}</Text>;
+            }
+          })}
+        </View>
+      </ScrollView>
+    );
   };
 
   return (
@@ -28,7 +142,7 @@ export default function ReaderScreen() {
         <TouchableOpacity onPress={() => goBack()}>
           <Text style={styles.backButton}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Don Quixote</Text>
+        <Text style={styles.headerTitle} numberOfLines={1}>{bookTitle}</Text>
         <TouchableOpacity>
           <Text style={styles.settingsButton}>⚙️</Text>
         </TouchableOpacity>
@@ -36,32 +150,23 @@ export default function ReaderScreen() {
 
       {/* Reading content */}
       <View style={styles.content}>
-        <Text style={styles.chapterTitle}>Chapter 1</Text>
-        <View style={styles.textContainer}>
-          {mockContent.split(' ').map((word, index) => (
-            <TouchableOpacity 
-              key={index}
-              onPress={() => handleWordTap(word.trim())}
-              style={styles.wordContainer}
-            >
-              <Text style={styles.word}>{word} </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {renderContent()}
       </View>
 
       {/* Bottom controls */}
-      <View style={styles.controls}>
-        <TouchableOpacity style={styles.controlButton}>
-          <Text style={styles.controlText}>🔊</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.controlButton}>
-          <Text style={styles.controlText}>📖</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.controlButton}>
-          <Text style={styles.controlText}>⚡</Text>
-        </TouchableOpacity>
-      </View>
+      {!isLoading && !error && (
+        <View style={styles.controls}>
+          <TouchableOpacity style={styles.controlButton}>
+            <Text style={styles.controlText}>🔊</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.controlButton}>
+            <Text style={styles.controlText}>📖</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.controlButton}>
+            <Text style={styles.controlText}>⚡</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -95,14 +200,52 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
   },
-  chapterTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    color: '#2c3e50',
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#7f8c8d',
     textAlign: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#e74c3c',
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    marginBottom: 20,
+    color: '#7f8c8d',
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#3498db',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  contentScroll: {
+    flex: 1,
+    padding: 20,
   },
   textContainer: {
     flexDirection: 'row',
