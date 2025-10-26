@@ -21,11 +21,12 @@ export default function ChapterRenderer({
 }: ChapterRendererProps) {
   const { width } = useWindowDimensions();
   
-  // Custom renderer for text nodes to add word interaction
+  // Custom renderers for all text-containing elements
   const renderers = {
+    // Handle direct text nodes
     textNode: (props: any) => {
       const text = props.tnode.data;
-      if (!text || typeof text !== 'string') {
+      if (!text || typeof text !== 'string' || text.trim() === '') {
         return null;
       }
       
@@ -38,6 +39,101 @@ export default function ChapterRenderer({
         />
       );
     },
+    
+    // Handle paragraph elements with interactive text
+    p: (props: any) => {
+      const { TDefaultRenderer, tnode } = props;
+      
+      // Extract all text content from the paragraph
+      const extractText = (node: any): string => {
+        if (node.type === 'text') {
+          return node.data || '';
+        }
+        if (node.children) {
+          return node.children.map(extractText).join('');
+        }
+        return '';
+      };
+      
+      const textContent = extractText(tnode);
+      
+      if (textContent.trim()) {
+        return (
+          <View style={{ marginBottom: 16 }}>
+            <InteractiveText
+              text={textContent}
+              onWordTap={onWordTap}
+              textStyles={textStyles}
+              isHighlighted={isHighlighted}
+            />
+          </View>
+        );
+      }
+      
+      return <TDefaultRenderer {...props} />;
+    },
+    
+    // Handle span elements
+    span: (props: any) => {
+      const { TDefaultRenderer, tnode } = props;
+      
+      const extractText = (node: any): string => {
+        if (node.type === 'text') {
+          return node.data || '';
+        }
+        if (node.children) {
+          return node.children.map(extractText).join('');
+        }
+        return '';
+      };
+      
+      const textContent = extractText(tnode);
+      
+      if (textContent.trim()) {
+        return (
+          <InteractiveText
+            text={textContent}
+            onWordTap={onWordTap}
+            textStyles={textStyles}
+            isHighlighted={isHighlighted}
+          />
+        );
+      }
+      
+      return <TDefaultRenderer {...props} />;
+    },
+    
+    // Handle div elements
+    div: (props: any) => {
+      const { TDefaultRenderer, tnode } = props;
+      
+      const extractText = (node: any): string => {
+        if (node.type === 'text') {
+          return node.data || '';
+        }
+        if (node.children) {
+          return node.children.map(extractText).join('');
+        }
+        return '';
+      };
+      
+      const textContent = extractText(tnode);
+      
+      if (textContent.trim()) {
+        return (
+          <View style={{ marginBottom: 8 }}>
+            <InteractiveText
+              text={textContent}
+              onWordTap={onWordTap}
+              textStyles={textStyles}
+              isHighlighted={isHighlighted}
+            />
+          </View>
+        );
+      }
+      
+      return <TDefaultRenderer {...props} />;
+    },
   };
 
   // Custom tag styles to match app theme
@@ -46,10 +142,6 @@ export default function ChapterRenderer({
       color: theme.colors.text,
       fontSize: textStyles?.fontSize || 16,
       lineHeight: textStyles?.lineHeight || 24,
-    },
-    p: {
-      marginBottom: 16,
-      color: theme.colors.text,
     },
     h1: {
       color: theme.colors.text,
@@ -71,12 +163,6 @@ export default function ChapterRenderer({
       fontWeight: 'bold',
       marginBottom: 10,
       marginTop: 14,
-    },
-    em: {
-      fontStyle: 'italic',
-    },
-    strong: {
-      fontWeight: 'bold',
     },
     blockquote: {
       backgroundColor: theme.colors.surface,

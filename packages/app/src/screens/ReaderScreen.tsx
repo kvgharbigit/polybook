@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useReducer, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Modal, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '../navigation/SimpleNavigator';
 import { useAppStore } from '../store/appStore';
@@ -34,6 +34,7 @@ export default function ReaderScreen() {
   const [chapters, setChapters] = useState<EPUBChapter[]>([]);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
   const [isEpub, setIsEpub] = useState(false);
+  const [showChapterSidebar, setShowChapterSidebar] = useState(false);
   
   // Translation popup state
   const [showPopup, setShowPopup] = useState(false);
@@ -388,6 +389,13 @@ export default function ReaderScreen() {
     setTheme(themes[nextIndex]);
   };
 
+  const goToChapter = (index: number) => {
+    console.log('📚 goToChapter: Moving to chapter', index, ':', chapters[index]?.title);
+    setCurrentChapterIndex(index);
+    setShowChapterSidebar(false);
+    scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+  };
+
   const goToNextChapter = () => {
     console.log('📚 goToNextChapter: Current chapter index:', currentChapterIndex, 'Total chapters:', chapters.length);
     if (currentChapterIndex < chapters.length - 1) {
@@ -488,11 +496,22 @@ export default function ReaderScreen() {
           <Text style={[styles.backButton, { color: theme.colors.primary }]}>← Back</Text>
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.colors.headerText }]} numberOfLines={1}>{bookTitle}</Text>
-        <TouchableOpacity onPress={cycleTheme}>
-          <Text style={styles.themeButton}>
-            {currentThemeName === 'light' ? '☀️' : currentThemeName === 'dark' ? '🌙' : '📜'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          {/* Chapter list button for EPUB */}
+          {isEpub && chapters.length > 0 && !isLoading && !error && (
+            <TouchableOpacity 
+              style={styles.chapterListButton}
+              onPress={() => setShowChapterSidebar(true)}
+            >
+              <Text style={styles.chapterListButtonText}>📋</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={cycleTheme}>
+            <Text style={styles.themeButton}>
+              {currentThemeName === 'light' ? '☀️' : currentThemeName === 'dark' ? '🌙' : '📜'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Reading content */}
@@ -513,33 +532,20 @@ export default function ReaderScreen() {
         ))}
       </View>
 
-      {/* Chapter navigation for EPUB */}
+      {/* Simple chapter progress indicator */}
       {isEpub && chapters.length > 0 && !isLoading && !error && (
-        <View style={styles.chapterNavigation}>
-          <TouchableOpacity 
-            style={[styles.chapterButton, currentChapterIndex === 0 && styles.chapterButtonDisabled]}
-            onPress={goToPreviousChapter}
-            disabled={currentChapterIndex === 0}
-          >
-            <Text style={styles.chapterButtonText}>← Previous</Text>
-          </TouchableOpacity>
-          
-          <View style={styles.chapterInfo}>
-            <Text style={styles.chapterInfoText}>
-              Chapter {currentChapterIndex + 1} of {chapters.length}
-            </Text>
-            <Text style={styles.chapterTitle} numberOfLines={1}>
-              {chapters[currentChapterIndex]?.title}
-            </Text>
+        <View style={styles.chapterProgress}>
+          <View style={styles.progressBar}>
+            <View 
+              style={[
+                styles.progressFill, 
+                { width: `${((currentChapterIndex + 1) / chapters.length) * 100}%` }
+              ]} 
+            />
           </View>
-          
-          <TouchableOpacity 
-            style={[styles.chapterButton, currentChapterIndex === chapters.length - 1 && styles.chapterButtonDisabled]}
-            onPress={goToNextChapter}
-            disabled={currentChapterIndex === chapters.length - 1}
-          >
-            <Text style={styles.chapterButtonText}>Next →</Text>
-          </TouchableOpacity>
+          <Text style={styles.progressText}>
+            Chapter {currentChapterIndex + 1} of {chapters.length}
+          </Text>
         </View>
       )}
 
@@ -598,6 +604,60 @@ export default function ReaderScreen() {
           <Text style={styles.successText}>{successMessage}</Text>
         </View>
       )}
+
+      {/* Chapter Sidebar Modal */}
+      <Modal
+        visible={showChapterSidebar}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowChapterSidebar(false)}
+      >
+        <SafeAreaView style={styles.sidebarContainer}>
+          <View style={styles.sidebarHeader}>
+            <Text style={styles.sidebarTitle}>Chapters</Text>
+            <TouchableOpacity 
+              style={styles.sidebarCloseButton}
+              onPress={() => setShowChapterSidebar(false)}
+            >
+              <Text style={styles.sidebarCloseButtonText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <FlatList
+            data={chapters}
+            keyExtractor={(item, index) => `chapter-${index}`}
+            renderItem={({ item, index }) => (
+              <TouchableOpacity
+                style={[
+                  styles.chapterItem,
+                  index === currentChapterIndex && styles.chapterItemActive
+                ]}
+                onPress={() => goToChapter(index)}
+              >
+                <View style={styles.chapterItemContent}>
+                  <Text style={styles.chapterNumber}>
+                    {index + 1}
+                  </Text>
+                  <Text 
+                    style={[
+                      styles.chapterItemTitle,
+                      index === currentChapterIndex && styles.chapterItemTitleActive
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {item.title}
+                  </Text>
+                </View>
+                {index === currentChapterIndex && (
+                  <View style={styles.currentChapterIndicator} />
+                )}
+              </TouchableOpacity>
+            )}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.chapterList}
+          />
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -624,9 +684,23 @@ const createStyles = (theme: any) => StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  chapterListButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+  chapterListButtonText: {
+    fontSize: 18,
   },
   themeButton: {
     fontSize: 20,
+    padding: 8,
   },
   content: {
     flex: 1,
@@ -768,47 +842,103 @@ const createStyles = (theme: any) => StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
-  chapterNavigation: {
+  chapterProgress: {
+    backgroundColor: theme.colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  progressBar: {
+    width: '100%',
+    height: 3,
+    backgroundColor: theme.colors.border,
+    borderRadius: 2,
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: theme.colors.primary,
+    borderRadius: 2,
+  },
+  progressText: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontWeight: '500',
+  },
+  // Sidebar styles
+  sidebarContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  sidebarHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
   },
-  chapterButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    backgroundColor: theme.colors.primary,
-    minWidth: 80,
-  },
-  chapterButtonDisabled: {
-    backgroundColor: theme.colors.textSecondary,
-    opacity: 0.5,
-  },
-  chapterButtonText: {
-    color: theme.colors.background,
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  chapterInfo: {
-    flex: 1,
-    alignItems: 'center',
-    marginHorizontal: 16,
-  },
-  chapterInfoText: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-    marginBottom: 2,
-  },
-  chapterTitle: {
-    fontSize: 14,
+  sidebarTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
     color: theme.colors.text,
-    fontWeight: '500',
+  },
+  sidebarCloseButton: {
+    padding: 8,
+  },
+  sidebarCloseButtonText: {
+    fontSize: 18,
+    color: theme.colors.textSecondary,
+  },
+  chapterList: {
+    padding: 20,
+  },
+  chapterItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 12,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  chapterItemActive: {
+    backgroundColor: theme.colors.primary + '20',
+    borderColor: theme.colors.primary,
+  },
+  chapterItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  chapterNumber: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: theme.colors.textSecondary,
+    width: 32,
     textAlign: 'center',
+    marginRight: 16,
+  },
+  chapterItemTitle: {
+    fontSize: 16,
+    color: theme.colors.text,
+    flex: 1,
+    lineHeight: 22,
+  },
+  chapterItemTitleActive: {
+    color: theme.colors.primary,
+    fontWeight: '600',
+  },
+  currentChapterIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.colors.primary,
+    marginLeft: 12,
   },
 });
