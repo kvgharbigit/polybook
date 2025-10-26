@@ -5,9 +5,10 @@ This document maintains the high-level frontend architecture, page structure, an
 
 ## Tech Stack
 - **Framework**: React Native + Expo (Managed Workflow)
-- **Navigation**: React Navigation v6 (Native Stack)
-- **State Management**: Zustand
-- **Styling**: React Native StyleSheet
+- **Navigation**: Custom Navigation Solution (no react-native-screens)
+- **State Management**: Zustand with SQLite/localStorage persistence
+- **Database**: Cross-platform (SQLite native, localStorage web)
+- **Styling**: React Native StyleSheet + react-native-safe-area-context
 - **Language**: TypeScript
 
 ## App Structure
@@ -16,27 +17,32 @@ This document maintains the high-level frontend architecture, page structure, an
 packages/app/
 ├── src/
 │   ├── screens/           # Main app screens
-│   │   ├── HomeScreen.tsx         # Landing/welcome page
-│   │   ├── LibraryScreen.tsx      # Book library management
-│   │   └── ReaderScreen.tsx       # Book reading interface
-│   ├── components/        # Reusable components (future)
-│   ├── hooks/            # Custom React hooks (future)
-│   ├── services/         # API/database services (future)
-│   ├── store/            # Zustand store setup (future)
-│   └── utils/            # App-specific utilities (future)
-├── App.tsx               # Root component with navigation
+│   │   ├── HomeScreen.tsx         # Landing/welcome page with file import
+│   │   ├── LibraryScreen.tsx      # Book library with real database data
+│   │   └── ReaderScreen.tsx       # Book reading with word interaction
+│   ├── navigation/        # Custom navigation system
+│   │   └── SimpleNavigator.tsx    # Platform-agnostic navigation
+│   ├── services/          # Database and business logic
+│   │   ├── database.ts            # SQLite database service (native)
+│   │   ├── webDatabase.ts         # localStorage fallback (web)
+│   │   └── databaseInterface.ts   # Cross-platform database API
+│   ├── store/             # State management
+│   │   └── appStore.ts            # Zustand store with database integration
+│   └── types/             # TypeScript definitions
+├── App.tsx               # Root component with SafeAreaProvider
 └── index.ts              # Entry point
 ```
 
 ## Navigation Structure
 
-### Stack Navigator Hierarchy
+### Custom Navigator Hierarchy
 ```
-NavigationContainer
-└── Stack.Navigator
-    ├── Home (HomeScreen)
-    ├── Library (LibraryScreen)
-    └── Reader (ReaderScreen)
+SafeAreaProvider
+└── NavigationProvider (Custom)
+    └── AppContent
+        ├── Home (HomeScreen) + Header
+        ├── Library (LibraryScreen) + Header with Back
+        └── Reader (ReaderScreen) + Custom Header
 ```
 
 ### Navigation Flow
@@ -131,17 +137,32 @@ Home Screen
 
 ## Data Flow
 
-### Current Implementation (MVP)
+### Current Implementation (Phase 1.2 + 1.3 - COMPLETED & STABLE)
 ```
-Mock Data → Screens → Display
+Cross-Platform DB ↔ Zustand Store ↔ React Components ↔ Custom Navigation
+     ↑                    ↑              ↑                    ↑
+(SQLite/localStorage)  Translation    User Interface    Platform-Agnostic
+File System           Cache          Interactions      Navigation
 ```
 
-### Future Implementation (Full)
+**Fully Implemented Features:**
+- ✅ Cross-platform database (SQLite native, localStorage web)
+- ✅ Zustand store with database persistence integration
+- ✅ Complete database service layer with all CRUD operations
+- ✅ Real book import with expo-document-picker and expo-file-system
+- ✅ Persistent file storage in app document directory
+- ✅ Library screen with live database data and refresh
+- ✅ Custom navigation system (no react-native-screens conflicts)
+- ✅ SafeAreaView using react-native-safe-area-context
+- ✅ Full TypeScript integration with proper types
+- ✅ Cross-platform compatibility (iOS, Android, Web)
+- ✅ Optimized Zustand selectors (no infinite loops)
+- ✅ Stable app initialization and navigation
+
+### Future Enhancements
 ```
-SQLite DB ↔ Zustand Store ↔ React Components
-     ↑              ↑              ↑
-File System    Translation    User Interface
-Language Packs    Cache        Interactions
+Advanced File Parsing → Enhanced Models → ML Translation
+EPUB/PDF Readers → Content Extraction → Offline Models
 ```
 
 ## Styling System
@@ -174,10 +195,15 @@ const colors = {
 
 ## State Management Plan
 
-### Current: Component State
-Each screen manages its own state with React hooks.
+### Current: Zustand Store (Implemented)
+Global state management with Zustand for:
+- Books library with CRUD operations
+- Reading positions and progress tracking  
+- Vocabulary cards and spaced repetition
+- Translation cache management
+- User settings and preferences
 
-### Future: Zustand Store
+### Implementation Details
 ```typescript
 interface AppStore {
   // Library state
@@ -253,21 +279,31 @@ App
 - [ ] Settings access
 
 ### Library Screen Evolution
-- [x] Basic book list with mock data
-- [ ] SQLite integration
-- [ ] Search and filtering
-- [ ] Book covers and metadata
-- [ ] Reading statistics
+- [x] Basic book list display
+- [x] SQLite integration with real-time data
+- [x] Pull-to-refresh functionality  
+- [x] Book metadata display (title, author, language pairs, dates)
+- [x] Empty state with import flow
+- [x] Progress indicators and last read timestamps
+- [x] Cross-platform database compatibility
+- [ ] **NEXT**: Search and filtering
+- [ ] **NEXT**: Book covers and enhanced metadata extraction
+- [ ] Reading statistics and progress calculation
 - [ ] Import/export options
+- [ ] Long-press actions (delete, edit)
 
 ### Reader Screen Evolution  
-- [x] Basic text display with word tapping
-- [ ] Real book content parsing (EPUB/PDF)
-- [ ] Translation popup with dictionary
-- [ ] Vocabulary saving
+- [x] Basic text display with word tapping interface
+- [x] Custom header with back navigation
+- [x] Mock content rendering with Spanish text
+- [x] Individual word tap detection
+- [ ] **NEXT PRIORITY**: Real book content parsing (TXT/HTML → structured text)
+- [ ] **NEXT**: Translation popup with dictionary lookup
+- [ ] **NEXT**: Vocabulary saving to database
 - [ ] Reading modes (toggle, side-by-side)
 - [ ] TTS integration
 - [ ] Position saving and sync
+- [ ] EPUB/PDF parsing integration
 - [ ] Annotations and highlights
 
 ## Navigation Enhancements (Future)
@@ -338,5 +374,20 @@ App
 - **2024-10-26**: Initial frontend structure documentation created
 - **2024-10-26**: React Navigation implementation completed, Expo Router removed
 - **2024-10-26**: Basic three-screen navigation working (Home → Library → Reader)
+- **2024-10-26**: SQLite database integration completed
+  - Database service layer with comprehensive CRUD operations
+  - Zustand store for global state management
+  - Real book import and storage functionality
+  - Library screen now uses live database data
+  - Pull-to-refresh and loading states implemented
+- **2024-10-26**: **MAJOR UPDATE - Navigation System Rebuilt**
+  - **Fixed react-native-screens compatibility issues** (boolean/string type conflicts)
+  - **Implemented custom navigation solution** - platform-agnostic, no native dependencies
+  - **Cross-platform database completed** - SQLite for native, localStorage for web
+  - **SafeAreaView modernized** - using react-native-safe-area-context
+  - **Phase 1.2 + 1.3 COMPLETED** - Full database integration and navigation working
+  - **TypeScript fully integrated** - All navigation and database operations properly typed
+  - **App fully functional** on iOS, Android, and Web platforms
+  - **Ready for Phase 1.4** - Book content parsing and text processing
 
 *This document should be updated whenever significant frontend changes are made.*
