@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import * as Crypto from 'expo-crypto';
-import { Book, VocabularyCard, Position, TranslationCache, BookContent } from '@polybook/shared';
+import { Book, VocabularyCard, Position, TranslationCache, BookContent } from '@polybook/shared/src/types';
 
 // Conditional import for SQLite (only on native platforms)
 let SQLite: any = null;
@@ -146,8 +146,8 @@ class DatabaseService {
         0, // file_size - will be updated when we process the file
         0, // total_pages - will be updated when we process the file
         Date.now(),
-        Date.now()
-      ]
+        Date.now(),
+      ],
     );
 
     return id;
@@ -178,8 +178,8 @@ class DatabaseService {
         bookId: row.id,
         spineIndex: 0,
         yOffset: row.y_offset || 0,
-        updatedAt: new Date(row.updated_at)
-      } : undefined
+        updatedAt: new Date(row.updated_at),
+      } : undefined,
     }));
   }
 
@@ -188,7 +188,7 @@ class DatabaseService {
 
     const result = await this.db.getFirstAsync(
       'SELECT * FROM books WHERE id = ?',
-      [id]
+      [id],
     ) as any;
 
     if (!result) return null;
@@ -203,7 +203,7 @@ class DatabaseService {
       filePath: result.file_path,
       coverPath: result.cover_path,
       addedAt: new Date(result.added_at),
-      lastOpenedAt: new Date(result.last_opened_at)
+      lastOpenedAt: new Date(result.last_opened_at),
     };
   }
 
@@ -212,14 +212,43 @@ class DatabaseService {
 
     await this.db.runAsync(
       'UPDATE books SET last_opened_at = ? WHERE id = ?',
-      [Date.now(), id]
+      [Date.now(), id],
     );
   }
 
   async deleteBook(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
+    // Get book details before deletion for file cleanup
+    const book = await this.getBook(id);
+    if (!book) {
+      throw new Error('Book not found');
+    }
+
+    // Delete from database (CASCADE will handle related records)
     await this.db.runAsync('DELETE FROM books WHERE id = ?', [id]);
+
+    // Clean up the book file from the file system
+    try {
+      const FileSystem = require('expo-file-system');
+      const fileInfo = await FileSystem.getInfoAsync(book.filePath);
+      if (fileInfo.exists) {
+        await FileSystem.deleteAsync(book.filePath);
+        console.log('🗑️ Database: Book file deleted:', book.filePath);
+      }
+      
+      // Also delete cover file if it exists
+      if (book.coverPath) {
+        const coverInfo = await FileSystem.getInfoAsync(book.coverPath);
+        if (coverInfo.exists) {
+          await FileSystem.deleteAsync(book.coverPath);
+          console.log('🗑️ Database: Cover file deleted:', book.coverPath);
+        }
+      }
+    } catch (fileError) {
+      console.warn('🗑️ Database: Failed to delete book files:', fileError);
+      // Don't throw error here - database deletion succeeded, file cleanup is best effort
+    }
   }
 
   // Position operations
@@ -236,7 +265,7 @@ class DatabaseService {
       position.page || null,
       position.yOffset,
       0, // progress - will calculate later based on position
-      Date.now()
+      Date.now(),
     ]);
   }
 
@@ -245,7 +274,7 @@ class DatabaseService {
 
     const result = await this.db.getFirstAsync(
       'SELECT * FROM positions WHERE book_id = ?',
-      [bookId]
+      [bookId],
     ) as any;
 
     if (!result) return null;
@@ -256,7 +285,7 @@ class DatabaseService {
       cfi: result.cfi,
       page: result.page,
       yOffset: result.y_offset,
-      updatedAt: new Date(result.updated_at)
+      updatedAt: new Date(result.updated_at),
     };
   }
 
@@ -283,7 +312,7 @@ class DatabaseService {
       card.frequency || null,
       card.srsState,
       Date.now(),
-      card.lastReviewedAt ? card.lastReviewedAt.getTime() : null
+      card.lastReviewedAt ? card.lastReviewedAt.getTime() : null,
     ]);
 
     return id;
@@ -313,7 +342,7 @@ class DatabaseService {
       frequency: row.frequency,
       srsState: row.srs_state as any,
       createdAt: new Date(row.created_at),
-      lastReviewedAt: row.last_reviewed_at ? new Date(row.last_reviewed_at) : undefined
+      lastReviewedAt: row.last_reviewed_at ? new Date(row.last_reviewed_at) : undefined,
     }));
   }
 
@@ -322,7 +351,7 @@ class DatabaseService {
 
     await this.db.runAsync(
       'DELETE FROM vocabulary_cards WHERE id = ?',
-      [id]
+      [id],
     );
   }
 
@@ -340,7 +369,7 @@ class DatabaseService {
       cache.targetLanguage,
       cache.translation,
       cache.modelVersion,
-      Date.now()
+      Date.now(),
     ]);
   }
 
@@ -349,7 +378,7 @@ class DatabaseService {
 
     const result = await this.db.getFirstAsync(
       'SELECT * FROM translation_cache WHERE source_hash = ?',
-      [sourceHash]
+      [sourceHash],
     ) as any;
 
     if (!result) return null;
@@ -362,7 +391,7 @@ class DatabaseService {
       targetLanguage: result.target_language,
       translation: result.translation,
       modelVersion: result.model_version,
-      createdAt: new Date(result.created_at)
+      createdAt: new Date(result.created_at),
     };
   }
 
@@ -373,7 +402,7 @@ class DatabaseService {
     const cutoff = Date.now() - maxAge;
     await this.db.runAsync(
       'DELETE FROM translation_cache WHERE created_at < ?',
-      [cutoff]
+      [cutoff],
     );
   }
 
@@ -393,7 +422,7 @@ class DatabaseService {
       bookContent.wordCount,
       bookContent.estimatedReadingTime,
       bookContent.parsedAt.getTime(),
-      bookContent.contentVersion
+      bookContent.contentVersion,
     ]);
 
     return id;
@@ -404,7 +433,7 @@ class DatabaseService {
 
     const result = await this.db.getFirstAsync(
       'SELECT * FROM book_content WHERE book_id = ?',
-      [bookId]
+      [bookId],
     ) as any;
 
     if (!result) return null;
@@ -416,7 +445,7 @@ class DatabaseService {
       wordCount: result.word_count,
       estimatedReadingTime: result.estimated_reading_time,
       parsedAt: new Date(result.parsed_at),
-      contentVersion: result.content_version
+      contentVersion: result.content_version,
     };
   }
 
@@ -425,7 +454,7 @@ class DatabaseService {
 
     await this.db.runAsync(
       'DELETE FROM book_content WHERE book_id = ?',
-      [bookId]
+      [bookId],
     );
   }
 
@@ -435,13 +464,13 @@ class DatabaseService {
     const [books, vocabulary, translations] = await Promise.all([
       this.db.getFirstAsync('SELECT COUNT(*) as count FROM books') as Promise<{count: number}>,
       this.db.getFirstAsync('SELECT COUNT(*) as count FROM vocabulary_cards') as Promise<{count: number}>,
-      this.db.getFirstAsync('SELECT COUNT(*) as count FROM translation_cache') as Promise<{count: number}>
+      this.db.getFirstAsync('SELECT COUNT(*) as count FROM translation_cache') as Promise<{count: number}>,
     ]);
 
     return {
       books: books.count,
       vocabulary: vocabulary.count,
-      translations: translations.count
+      translations: translations.count,
     };
   }
 }

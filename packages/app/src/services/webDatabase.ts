@@ -1,5 +1,5 @@
 import * as Crypto from 'expo-crypto';
-import { Book, VocabularyCard, Position, TranslationCache, BookContent } from '@polybook/shared';
+import { Book, VocabularyCard, Position, TranslationCache, BookContent } from '@polybook/shared/src/types';
 
 const STORAGE_KEYS = {
   BOOKS: 'polybook_books',
@@ -294,7 +294,7 @@ class WebDatabaseService {
     
     const content: BookContent = {
       id,
-      ...bookContent
+      ...bookContent,
     };
 
     stored[bookContent.bookId] = content;
@@ -312,7 +312,7 @@ class WebDatabaseService {
     // Convert date strings back to Date objects
     return {
       ...content,
-      parsedAt: new Date(content.parsedAt)
+      parsedAt: new Date(content.parsedAt),
     };
   }
 

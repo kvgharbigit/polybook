@@ -1,10 +1,15 @@
 import * as FileSystem from 'expo-file-system';
+import { EPUBParser } from './epubParser';
 
 export interface ParsedContent {
   title: string;
   content: string;
   wordCount: number;
   estimatedReadingTime: number; // in minutes
+  author?: string;
+  language?: string;
+  metadata?: any;
+  chapters?: import('./epubParser').EPUBChapter[]; // For EPUB files
 }
 
 export interface ContentChunk {
@@ -52,7 +57,7 @@ export class ContentParser {
         title,
         content: mainContent,
         wordCount,
-        estimatedReadingTime
+        estimatedReadingTime,
       };
     } catch (error) {
       console.error('Error parsing TXT file:', error);
@@ -80,7 +85,7 @@ export class ContentParser {
         title,
         content,
         wordCount,
-        estimatedReadingTime
+        estimatedReadingTime,
       };
     } catch (error) {
       console.error('Error parsing HTML file:', error);
@@ -152,7 +157,7 @@ export class ContentParser {
           id: `chunk_${chunkIndex}`,
           text: currentChunk.trim(),
           startPosition: position - currentChunk.length,
-          endPosition: position
+          endPosition: position,
         });
 
         chunkIndex++;
@@ -170,7 +175,7 @@ export class ContentParser {
         id: `chunk_${chunkIndex}`,
         text: currentChunk.trim(),
         startPosition: position - currentChunk.length,
-        endPosition: position
+        endPosition: position,
       });
     }
 
@@ -187,12 +192,12 @@ export class ContentParser {
       case 'html':
       case 'htm':
         return this.parseHtmlFile(filePath);
-      case 'pdf':
-        throw new Error('PDF files are not yet supported. Coming in Phase 2! Please use TXT or HTML files for now.');
       case 'epub':
-        throw new Error('EPUB files are not yet supported. Coming in Phase 2! Please use TXT or HTML files for now.');
+        return EPUBParser.parseEPUB(filePath);
+      case 'pdf':
+        throw new Error('PDF files are not yet supported. Coming in Phase 2! Please use TXT, HTML, or EPUB files for now.');
       default:
-        throw new Error(`Unsupported file format: ${format}. Currently supported: TXT, HTML. PDF and EPUB coming soon!`);
+        throw new Error(`Unsupported file format: ${format}. Currently supported: TXT, HTML, EPUB. PDF coming soon!`);
     }
   }
 }

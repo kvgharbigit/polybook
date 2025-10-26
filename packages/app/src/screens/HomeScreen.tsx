@@ -5,9 +5,11 @@ import { useNavigation } from '../navigation/SimpleNavigator';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { useAppStore } from '../store/appStore';
+import { useTheme } from '../hooks/useTheme';
 
 export default function HomeScreen() {
   const { navigate } = useNavigation();
+  const { theme } = useTheme();
   const [importing, setImporting] = useState(false);
 
   const handleImportBook = async () => {
@@ -17,7 +19,7 @@ export default function HomeScreen() {
       setImporting(true);
       
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/epub+zip', 'application/pdf', 'text/plain', 'text/html'],
+        type: ['application/epub+zip', 'application/pdf', 'text/plain', 'text/html', 'application/x-mobipocket-ebook'],
         copyToCacheDirectory: true,
       });
 
@@ -48,7 +50,7 @@ export default function HomeScreen() {
         });
         
         // Extract title from filename (remove extension)
-        const title = fileName.replace(/\.[^/.]+$/, "");
+        const title = fileName.replace(/\.[^/.]+$/, '');
         
         // For now, use default values - will be enhanced with actual file parsing
         const bookData = {
@@ -69,8 +71,8 @@ export default function HomeScreen() {
           `"${title}" has been added to your library.`,
           [
             { text: 'View Library', onPress: () => navigate('Library') },
-            { text: 'Import Another', style: 'cancel' }
-          ]
+            { text: 'Import Another', style: 'cancel' },
+          ],
         );
         
       }
@@ -79,12 +81,14 @@ export default function HomeScreen() {
       Alert.alert(
         'Import Failed',
         'There was an error importing your book. Please try again.',
-        [{ text: 'OK' }]
+        [{ text: 'OK' }],
       );
     } finally {
       setImporting(false);
     }
   };
+
+  const styles = createStyles(theme);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -118,11 +122,18 @@ export default function HomeScreen() {
           >
             <Text style={styles.tertiaryButtonText}>📚 My Vocabulary</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.tertiaryButton}
+            onPress={() => navigate('Settings')}
+          >
+            <Text style={styles.tertiaryButtonText}>⚙️ Settings</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.featuresContainer}>
           <Text style={styles.featuresTitle}>Features:</Text>
-          <Text style={styles.featureItem}>📖 Read EPUB, PDF, and TXT files</Text>
+          <Text style={styles.featureItem}>📖 Read EPUB, TXT, and HTML files</Text>
           <Text style={styles.featureItem}>🔤 Tap words for instant translation</Text>
           <Text style={styles.featureItem}>📚 Build your vocabulary library</Text>
           <Text style={styles.featureItem}>🔊 Text-to-speech support</Text>
@@ -133,10 +144,10 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background,
   },
   content: {
     flex: 1,
@@ -148,63 +159,64 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 8,
-    color: '#2c3e50',
+    color: theme.colors.text,
   },
   subtitle: {
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 40,
-    color: '#7f8c8d',
+    color: theme.colors.textSecondary,
   },
   actionContainer: {
     marginBottom: 40,
   },
   primaryButton: {
-    backgroundColor: '#3498db',
+    backgroundColor: theme.colors.primary,
     paddingVertical: 16,
     paddingHorizontal: 32,
     borderRadius: 8,
     marginBottom: 16,
   },
   primaryButtonDisabled: {
-    backgroundColor: '#95a5a6',
+    backgroundColor: theme.colors.textSecondary,
   },
   primaryButtonText: {
-    color: '#fff',
+    color: theme.colors.background,
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
   },
   secondaryButton: {
-    backgroundColor: '#ecf0f1',
+    backgroundColor: theme.colors.surface,
     paddingVertical: 16,
     paddingHorizontal: 32,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#bdc3c7',
+    borderColor: theme.colors.border,
   },
   secondaryButtonText: {
-    color: '#2c3e50',
+    color: theme.colors.text,
     fontSize: 18,
     fontWeight: '600',
     textAlign: 'center',
   },
   tertiaryButton: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.colors.surface,
     paddingVertical: 12,
     paddingHorizontal: 32,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#dee2e6',
+    borderColor: theme.colors.border,
+    marginBottom: 8,
   },
   tertiaryButtonText: {
-    color: '#34495e',
+    color: theme.colors.text,
     fontSize: 16,
     fontWeight: '500',
     textAlign: 'center',
   },
   featuresContainer: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.colors.surface,
     padding: 20,
     borderRadius: 8,
   },
@@ -212,11 +224,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 12,
-    color: '#2c3e50',
+    color: theme.colors.text,
   },
   featureItem: {
     fontSize: 14,
     marginBottom: 8,
-    color: '#34495e',
+    color: theme.colors.text,
   },
 });

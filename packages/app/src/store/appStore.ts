@@ -92,7 +92,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const book = await db.getBook(id);
       if (book) {
         set(state => ({
-          books: [book, ...state.books]
+          books: [book, ...state.books],
         }));
       }
       return id;
@@ -107,7 +107,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       await db.deleteBook(id);
       set(state => ({
         books: state.books.filter(book => book.id !== id),
-        currentBook: state.currentBook?.id === id ? null : state.currentBook
+        currentBook: state.currentBook?.id === id ? null : state.currentBook,
       }));
     } catch (error) {
       console.error('Failed to delete book:', error);
@@ -176,7 +176,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // Settings actions
   updateSettings: (newSettings) => {
     set(state => ({
-      userSettings: { ...state.userSettings, ...newSettings }
+      userSettings: { ...state.userSettings, ...newSettings },
     }));
   },
 

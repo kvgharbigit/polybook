@@ -6,6 +6,7 @@ import HomeScreen from './src/screens/HomeScreen';
 import LibraryScreen from './src/screens/LibraryScreen';
 import ReaderScreen from './src/screens/ReaderScreen';
 import VocabularyScreen from './src/screens/VocabularyScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
 import { useAppStore } from './src/store/appStore';
 
 function LoadingScreen() {
@@ -81,6 +82,12 @@ function AppContent() {
         return (
           <View style={styles.screenContainer}>
             <VocabularyScreen />
+          </View>
+        );
+      case 'Settings':
+        return (
+          <View style={styles.screenContainer}>
+            <SettingsScreen />
           </View>
         );
       default:

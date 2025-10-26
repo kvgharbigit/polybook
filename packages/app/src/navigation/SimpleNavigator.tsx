@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
 // Navigation types
-export type Screen = 'Home' | 'Library' | 'Reader' | 'Vocabulary';
+export type Screen = 'Home' | 'Library' | 'Reader' | 'Vocabulary' | 'Settings';
 
 export interface NavigationState {
   currentScreen: Screen;
@@ -36,7 +36,7 @@ interface NavigationProviderProps {
 
 export const NavigationProvider: React.FC<NavigationProviderProps> = ({ 
   children, 
-  initialScreen = 'Home' 
+  initialScreen = 'Home', 
 }) => {
   const [navigationState, setNavigationState] = useState<NavigationState>({
     currentScreen: initialScreen,
@@ -80,7 +80,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ 
   title, 
   showBackButton = false, 
-  onBackPress 
+  onBackPress, 
 }) => {
   const { goBack, canGoBack } = useNavigation();
 

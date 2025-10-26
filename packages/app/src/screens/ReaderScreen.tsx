@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useReducer, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '../navigation/SimpleNavigator';
@@ -6,16 +6,34 @@ import { useAppStore } from '../store/appStore';
 import { ContentParser } from '../services/contentParser';
 import { db } from '../services/databaseInterface';
 import TranslationPopup, { WordDefinition } from '../components/TranslationPopup';
+import ChapterRenderer from '../components/ChapterRenderer';
+import InteractiveText from '../components/InteractiveText';
 import { WordLookupService } from '../services/wordLookup';
+import { ttsService } from '../services/ttsService';
+import { useTheme } from '../hooks/useTheme';
+import { useFont } from '../hooks/useFont';
+import { useTTSHighlight } from '../hooks/useTTSHighlight';
+import { EPUBChapter } from '../services/epubParser';
 
 export default function ReaderScreen() {
+  console.log('🔵 ReaderScreen: Component mounting/re-rendering');
+  
   const { navigationState, goBack } = useNavigation();
   const { id } = navigationState.params || { id: '1' };
+  const { theme, setTheme, currentThemeName, availableThemes } = useTheme();
+  const { settings: fontSettings, increaseFontSize, decreaseFontSize, textStyles } = useFont();
+  const { highlightWord, isWordHighlighted, clearHighlight } = useTTSHighlight();
   
   const [content, setContent] = useState<string>('');
   const [bookTitle, setBookTitle] = useState<string>('Loading...');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [contentLoaded, setContentLoaded] = useState(false);
+  
+  // Chapter navigation state
+  const [chapters, setChapters] = useState<EPUBChapter[]>([]);
+  const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
+  const [isEpub, setIsEpub] = useState(false);
   
   // Translation popup state
   const [showPopup, setShowPopup] = useState(false);
@@ -29,36 +47,92 @@ export default function ReaderScreen() {
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string>('');
   
+  // TTS state
+  const [isTTSEnabled, setIsTTSEnabled] = useState(true);
+  
+  // Force re-render hook
+  const [, forceUpdate] = useReducer(x => x + 1, 0);
+  
   const books = useAppStore(state => state.books);
   const scrollViewRef = useRef<ScrollView>(null);
+  const loadingRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  // Component cleanup
+  useEffect(() => {
+    console.log('🔵 ReaderScreen: Component mounted');
+    mountedRef.current = true;
+    return () => {
+      console.log('🔴 ReaderScreen: Component unmounting');
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
-    loadBookContent();
-  }, [id]);
+    console.log('📘 ReaderScreen: useEffect triggered', {
+      id,
+      booksLength: books.length,
+      contentLoaded,
+      isLoading: loadingRef.current,
+    });
+    
+    // Don't reload if content is already loaded for this book or if already loading
+    if (contentLoaded || loadingRef.current) {
+      console.log('📘 ReaderScreen: Skipping reload - content already loaded or loading in progress');
+      return;
+    }
+    
+    // Ensure books are loaded before trying to access them
+    const loadData = async () => {
+      console.log('📘 ReaderScreen: Starting loadData function');
+      if (books.length === 0) {
+        console.log('📘 ReaderScreen: No books loaded, loading books first');
+        await useAppStore.getState().loadBooks();
+      }
+      console.log('📘 ReaderScreen: Calling loadBookContent');
+      await loadBookContent();
+    };
+    loadData();
+  }, [id]); // Only depend on id, not books.length
 
   const loadBookContent = async () => {
+    console.log('📖 loadBookContent: Starting function');
     try {
+      loadingRef.current = true;
       setIsLoading(true);
       setError(null);
+      console.log('📖 loadBookContent: Set loading state to true');
 
       // Find the book
       const book = books.find(b => b.id === id);
+      console.log('📖 loadBookContent: Looking for book with ID:', id);
+      console.log('📖 loadBookContent: Available books:', books.map(b => ({ id: b.id, title: b.title, format: b.format })));
+      
       if (!book) {
+        console.error('📖 loadBookContent: Book not found!');
         setError('Book not found');
         return;
       }
 
-      setBookTitle(book.title);
+      console.log('📖 loadBookContent: Found book:', { title: book.title, format: book.format, filePath: book.filePath });
+      setBookTitle(`${book.title} (${book.format.toUpperCase()})`);
 
       // Check if content is already cached
+      console.log('📖 loadBookContent: Checking for cached content');
       let bookContent = await db.getBookContent(book.id);
       
       if (!bookContent) {
-        // Parse the book content for the first time
-        console.log('Parsing book content for:', book.title);
+        console.log('📖 loadBookContent: No cached content found, parsing file for first time');
+        console.log('📖 loadBookContent: Parsing file:', book.filePath, 'with format:', book.format);
         
         try {
           const parsed = await ContentParser.parseFile(book.filePath, book.format);
+          console.log('📖 loadBookContent: File parsed successfully', {
+            contentLength: parsed.content.length,
+            wordCount: parsed.wordCount,
+            hasChapters: !!parsed.chapters,
+            chaptersCount: parsed.chapters?.length || 0,
+          });
           
           // Save to database
           bookContent = {
@@ -67,32 +141,105 @@ export default function ReaderScreen() {
             wordCount: parsed.wordCount,
             estimatedReadingTime: parsed.estimatedReadingTime,
             parsedAt: new Date(),
-            contentVersion: '1.0'
+            contentVersion: '1.0',
+            chapters: parsed.chapters, // Include chapters if available
           };
           
+          console.log('📖 loadBookContent: Saving parsed content to database');
           await db.saveBookContent(bookContent);
-          console.log('Book content parsed and cached successfully');
+          console.log('📖 loadBookContent: Content saved to database successfully');
         } catch (parseError) {
-          console.error('Error parsing book content:', parseError);
+          console.error('📖 loadBookContent: Error parsing book content:', parseError);
           setError('Failed to parse book content. Please try again.');
           return;
         }
+      } else {
+        console.log('📖 loadBookContent: Found cached content', {
+          contentLength: bookContent.content.length,
+          wordCount: bookContent.wordCount,
+          hasChapters: !!bookContent.chapters,
+          chaptersCount: bookContent.chapters?.length || 0,
+        });
       }
 
-      setContent(bookContent.content);
+      // Only update state if component is still mounted
+      console.log('📖 loadBookContent: Updating component state');
+      if (mountedRef.current) {
+        console.log('📖 loadBookContent: Component still mounted, setting content');
+        setContent(bookContent.content);
+        setContentLoaded(true);
+        
+        // Handle EPUB chapters if available
+        if (bookContent.chapters && bookContent.chapters.length > 0) {
+          console.log('📖 loadBookContent: Setting EPUB chapters', {
+            chaptersCount: bookContent.chapters.length,
+            chapterTitles: bookContent.chapters.map(c => c.title),
+          });
+          setChapters(bookContent.chapters);
+          setIsEpub(true);
+        } else {
+          console.log('📖 loadBookContent: No chapters found, setting as non-EPUB');
+          setIsEpub(false);
+        }
+      } else {
+        console.warn('📖 loadBookContent: Component unmounted, skipping state update');
+      }
     } catch (error) {
-      console.error('Error loading book content:', error);
-      setError('Failed to load book content');
+      console.error('📖 loadBookContent: Caught error:', error);
+      if (mountedRef.current) {
+        console.log('📖 loadBookContent: Setting error state');
+        setError('Failed to load book content');
+      }
     } finally {
-      setIsLoading(false);
+      console.log('📖 loadBookContent: In finally block');
+      loadingRef.current = false;
+      if (mountedRef.current) {
+        console.log('📖 loadBookContent: Setting loading to false');
+        setIsLoading(false);
+        
+        // Force a re-render to ensure UI updates
+        setTimeout(() => {
+          if (mountedRef.current) {
+            console.log('📖 loadBookContent: Force update timeout triggered');
+            setIsLoading(false);
+            setContentLoaded(true);
+            forceUpdate();
+          }
+        }, 50);
+      }
     }
   };
 
-  const handleWordTap = async (word: string, event: any) => {
+  const handleWordTap = async (word: string, event: any, wordIndex?: number) => {
     console.log('Tapped word:', word);
     
-    // Get tap position for popup placement
+    // Extract position immediately before async operations
     const { pageX, pageY } = event.nativeEvent;
+    
+    // Speak the word if TTS is enabled
+    if (isTTSEnabled) {
+      try {
+        const cleanWord = word.replace(/[^\w]/g, ''); // Remove punctuation
+        if (cleanWord.length > 0) {
+          // Highlight the word during TTS
+          if (wordIndex !== undefined) {
+            highlightWord(cleanWord, wordIndex, 1500);
+          }
+          
+          await ttsService.speak(cleanWord, {
+            rate: 0.8, // Slightly slower for single words
+            language: 'en-US', // TODO: Use book language
+            onDone: () => {
+              // Clear highlight when TTS is done
+              clearHighlight();
+            },
+          });
+        }
+      } catch (error) {
+        console.error('Error speaking word:', error);
+        clearHighlight();
+      }
+    }
     
     setSelectedWord(word);
     setPopupPosition({ x: pageX, y: pageY });
@@ -133,7 +280,7 @@ export default function ReaderScreen() {
       beforeText.lastIndexOf('.'),
       beforeText.lastIndexOf('!'),
       beforeText.lastIndexOf('?'),
-      beforeText.lastIndexOf('\n')
+      beforeText.lastIndexOf('\n'),
     );
 
     // Look for sentence endings after the word
@@ -141,7 +288,7 @@ export default function ReaderScreen() {
       afterText.indexOf('.') !== -1 ? afterText.indexOf('.') + wordIndex + word.length : Infinity,
       afterText.indexOf('!') !== -1 ? afterText.indexOf('!') + wordIndex + word.length : Infinity,
       afterText.indexOf('?') !== -1 ? afterText.indexOf('?') + wordIndex + word.length : Infinity,
-      afterText.indexOf('\n') !== -1 ? afterText.indexOf('\n') + wordIndex + word.length : Infinity
+      afterText.indexOf('\n') !== -1 ? afterText.indexOf('\n') + wordIndex + word.length : Infinity,
     );
 
     const start = sentenceStart >= 0 ? sentenceStart + 1 : 0;
@@ -221,97 +368,207 @@ export default function ReaderScreen() {
     }
   };
 
-  const renderContent = () => {
-    if (isLoading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3498db" />
-          <Text style={styles.loadingText}>Parsing book content...</Text>
-        </View>
-      );
-    }
-
-    if (error) {
-      return (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorTitle}>Error Loading Book</Text>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={loadBookContent}>
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
-    if (!content) {
-      return (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>No content available</Text>
-        </View>
-      );
-    }
-
-    return (
-      <ScrollView 
-        ref={scrollViewRef}
-        style={styles.contentScroll} 
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.textContainer}>
-          {content.split(/(\s+)/).map((segment, index) => {
-            // Check if it's a word (not whitespace)
-            const isWord = segment.trim().length > 0 && !/^\s+$/.test(segment);
-            
-            if (isWord) {
-              return (
-                <TouchableOpacity 
-                  key={index}
-                  onPress={(event) => handleWordTap(segment.trim(), event)}
-                  style={styles.wordContainer}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.word}>{segment}</Text>
-                </TouchableOpacity>
-              );
-            } else {
-              // Render whitespace as is
-              return <Text key={index} style={styles.word}>{segment}</Text>;
-            }
-          })}
-        </View>
-      </ScrollView>
-    );
+  const toggleTTS = () => {
+    setIsTTSEnabled(!isTTSEnabled);
+    console.log('TTS', isTTSEnabled ? 'disabled' : 'enabled');
   };
+
+  const cycleTheme = () => {
+    const themes = ['light', 'dark', 'sepia'] as const;
+    const currentIndex = themes.indexOf(currentThemeName);
+    const nextIndex = (currentIndex + 1) % themes.length;
+    setTheme(themes[nextIndex]);
+  };
+
+  const goToNextChapter = () => {
+    console.log('📚 goToNextChapter: Current chapter index:', currentChapterIndex, 'Total chapters:', chapters.length);
+    if (currentChapterIndex < chapters.length - 1) {
+      const nextIndex = currentChapterIndex + 1;
+      console.log('📚 goToNextChapter: Moving to chapter', nextIndex, ':', chapters[nextIndex]?.title);
+      setCurrentChapterIndex(nextIndex);
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    } else {
+      console.log('📚 goToNextChapter: Already at last chapter');
+    }
+  };
+
+  const goToPreviousChapter = () => {
+    console.log('📚 goToPreviousChapter: Current chapter index:', currentChapterIndex);
+    if (currentChapterIndex > 0) {
+      const prevIndex = currentChapterIndex - 1;
+      console.log('📚 goToPreviousChapter: Moving to chapter', prevIndex, ':', chapters[prevIndex]?.title);
+      setCurrentChapterIndex(prevIndex);
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    } else {
+      console.log('📚 goToPreviousChapter: Already at first chapter');
+    }
+  };
+
+
+  const styles = createStyles(theme);
+
+  // Force content rendering with useMemo to bypass React rendering issues
+  const contentView = useMemo(() => {
+    console.log('🎨 useMemo contentView triggered:', {
+      isEpub,
+      chaptersLength: chapters.length,
+      contentLength: content.length,
+      currentChapterIndex,
+      currentChapterTitle: chapters[currentChapterIndex]?.title,
+    });
+    
+    if (content.length > 0) {
+      // EPUB chapter-based rendering
+      if (isEpub && chapters.length > 0) {
+        const currentChapter = chapters[currentChapterIndex];
+        console.log('🎨 useMemo: Rendering EPUB chapter:', {
+          chapterIndex: currentChapterIndex,
+          chapterTitle: currentChapter?.title,
+          chapterContentLength: currentChapter?.content?.length,
+          chapterHtmlLength: currentChapter?.htmlContent?.length,
+        });
+        
+        if (currentChapter) {
+          return (
+            <ScrollView 
+              ref={scrollViewRef}
+              style={styles.contentScroll} 
+              showsVerticalScrollIndicator={false}
+            >
+              <ChapterRenderer
+                chapter={currentChapter}
+                onWordTap={handleWordTap}
+                textStyles={textStyles}
+                theme={theme}
+                isHighlighted={isWordHighlighted}
+              />
+            </ScrollView>
+          );
+        } else {
+          console.warn('🎨 useMemo: Current chapter is null/undefined');
+        }
+      }
+      
+      // Fallback: Traditional text rendering for TXT/HTML
+      console.log('🎨 useMemo: Rendering traditional text (TXT/HTML)');
+      return (
+        <ScrollView 
+          ref={scrollViewRef}
+          style={styles.contentScroll} 
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.simpleTextContainer}>
+            <InteractiveText
+              text={content}
+              onWordTap={handleWordTap}
+              textStyles={textStyles}
+              isHighlighted={isWordHighlighted}
+            />
+          </View>
+        </ScrollView>
+      );
+    }
+    console.log('🎨 useMemo: No content to render');
+    return null;
+  }, [content.length, isEpub, chapters.length, currentChapterIndex, styles, textStyles, theme]);
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header with controls */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => goBack()}>
-          <Text style={styles.backButton}>← Back</Text>
+          <Text style={[styles.backButton, { color: theme.colors.primary }]}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>{bookTitle}</Text>
-        <TouchableOpacity>
-          <Text style={styles.settingsButton}>⚙️</Text>
+        <Text style={[styles.headerTitle, { color: theme.colors.headerText }]} numberOfLines={1}>{bookTitle}</Text>
+        <TouchableOpacity onPress={cycleTheme}>
+          <Text style={styles.themeButton}>
+            {currentThemeName === 'light' ? '☀️' : currentThemeName === 'dark' ? '🌙' : '📜'}
+          </Text>
         </TouchableOpacity>
       </View>
 
       {/* Reading content */}
       <View style={styles.content}>
-        {renderContent()}
+        {contentView || (error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorTitle}>Error Loading Book</Text>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={loadBookContent}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#3498db" />
+            <Text style={styles.loadingText}>Loading book content...</Text>
+          </View>
+        ))}
       </View>
+
+      {/* Chapter navigation for EPUB */}
+      {isEpub && chapters.length > 0 && !isLoading && !error && (
+        <View style={styles.chapterNavigation}>
+          <TouchableOpacity 
+            style={[styles.chapterButton, currentChapterIndex === 0 && styles.chapterButtonDisabled]}
+            onPress={goToPreviousChapter}
+            disabled={currentChapterIndex === 0}
+          >
+            <Text style={styles.chapterButtonText}>← Previous</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.chapterInfo}>
+            <Text style={styles.chapterInfoText}>
+              Chapter {currentChapterIndex + 1} of {chapters.length}
+            </Text>
+            <Text style={styles.chapterTitle} numberOfLines={1}>
+              {chapters[currentChapterIndex]?.title}
+            </Text>
+          </View>
+          
+          <TouchableOpacity 
+            style={[styles.chapterButton, currentChapterIndex === chapters.length - 1 && styles.chapterButtonDisabled]}
+            onPress={goToNextChapter}
+            disabled={currentChapterIndex === chapters.length - 1}
+          >
+            <Text style={styles.chapterButtonText}>Next →</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Bottom controls */}
       {!isLoading && !error && (
         <View style={styles.controls}>
-          <TouchableOpacity style={styles.controlButton}>
-            <Text style={styles.controlText}>🔊</Text>
+          {/* Font Size Decrease */}
+          <TouchableOpacity 
+            style={styles.controlButton}
+            onPress={decreaseFontSize}
+          >
+            <Text style={styles.controlText}>A-</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.controlButton}>
-            <Text style={styles.controlText}>📖</Text>
+
+          {/* Font Size Display */}
+          <View style={styles.fontSizeDisplay}>
+            <Text style={[styles.controlText, { fontSize: 12 }]}>
+              {Math.round(fontSettings.fontSize)}px
+            </Text>
+          </View>
+
+          {/* Font Size Increase */}
+          <TouchableOpacity 
+            style={styles.controlButton}
+            onPress={increaseFontSize}
+          >
+            <Text style={styles.controlText}>A+</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.controlButton}>
-            <Text style={styles.controlText}>⚡</Text>
+
+          {/* TTS Toggle */}
+          <TouchableOpacity 
+            style={[styles.controlButton, isTTSEnabled && styles.controlButtonActive]}
+            onPress={toggleTTS}
+          >
+            <Text style={styles.controlText}>
+              {isTTSEnabled ? '🔊' : '🔇'}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -320,9 +577,9 @@ export default function ReaderScreen() {
         visible={showPopup}
         word={selectedWord}
         position={popupPosition}
-        definition={wordDefinition}
+        definition={wordDefinition || undefined}
         isLoading={isLookingUp}
-        error={lookupError}
+        error={lookupError || undefined}
         onClose={handleClosePopup}
         onSaveWord={handleSaveWord}
         onTranslate={handleTranslateWord}
@@ -337,10 +594,10 @@ export default function ReaderScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -349,20 +606,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: theme.colors.border,
+    backgroundColor: theme.colors.header,
   },
   backButton: {
     fontSize: 16,
-    color: '#3498db',
     fontWeight: '600',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#2c3e50',
   },
-  settingsButton: {
-    fontSize: 18,
+  themeButton: {
+    fontSize: 20,
   },
   content: {
     flex: 1,
@@ -376,7 +632,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#7f8c8d',
+    color: theme.colors.textSecondary,
     textAlign: 'center',
   },
   errorContainer: {
@@ -389,23 +645,23 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 8,
-    color: '#e74c3c',
+    color: theme.colors.error,
     textAlign: 'center',
   },
   errorText: {
     fontSize: 16,
     marginBottom: 20,
-    color: '#7f8c8d',
+    color: theme.colors.textSecondary,
     textAlign: 'center',
   },
   retryButton: {
-    backgroundColor: '#3498db',
+    backgroundColor: theme.colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: '#fff',
+    color: theme.colors.background,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -418,52 +674,133 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     lineHeight: 24,
   },
+  simpleTextContainer: {
+    padding: 4,
+  },
+  simpleText: {
+    color: theme.colors.text,
+    lineHeight: 28,
+    textAlign: 'left',
+  },
   wordContainer: {
     marginVertical: 2,
   },
+  wordContainerHighlighted: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 4,
+    paddingHorizontal: 2,
+  },
   word: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#2c3e50',
+    color: theme.colors.text,
+  },
+  wordHighlighted: {
+    color: theme.colors.background,
+    fontWeight: 'bold',
   },
   controls: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
-    backgroundColor: '#f8f9fa',
+    borderTopColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
   },
   controlButton: {
     padding: 12,
     borderRadius: 8,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background,
     borderWidth: 1,
-    borderColor: '#dee2e6',
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    minWidth: 48,
+  },
+  controlButtonActive: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  fontSizeDisplay: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: theme.colors.background,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    minWidth: 48,
+    justifyContent: 'center',
   },
   controlText: {
     fontSize: 20,
+  },
+  speedText: {
+    fontSize: 10,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+    fontWeight: 'bold',
   },
   successMessage: {
     position: 'absolute',
     bottom: 100,
     left: 20,
     right: 20,
-    backgroundColor: '#27ae60',
+    backgroundColor: theme.colors.success,
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
-    shadowColor: '#000',
+    shadowColor: theme.colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
   },
   successText: {
-    color: '#fff',
+    color: theme.colors.background,
     fontSize: 14,
     fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  chapterNavigation: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  chapterButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    backgroundColor: theme.colors.primary,
+    minWidth: 80,
+  },
+  chapterButtonDisabled: {
+    backgroundColor: theme.colors.textSecondary,
+    opacity: 0.5,
+  },
+  chapterButtonText: {
+    color: theme.colors.background,
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  chapterInfo: {
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 16,
+  },
+  chapterInfoText: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginBottom: 2,
+  },
+  chapterTitle: {
+    fontSize: 14,
+    color: theme.colors.text,
+    fontWeight: '500',
     textAlign: 'center',
   },
 });
