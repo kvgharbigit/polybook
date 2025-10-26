@@ -277,8 +277,8 @@ export class FontService {
       console.log('✅ FontService: Re-enabling word tapping - font changes complete');
       this.isWordTappingEnabled = true;
       this.wordTappingDebounceTimer = null;
-      // Notify components that word tapping is available again
-      this.notifyListeners();
+      // DON'T notify listeners - word tapping state is checked directly in components
+      // This prevents unnecessary re-renders when word tapping is re-enabled
     }, this.WORD_TAPPING_DELAY);
   }
 

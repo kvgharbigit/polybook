@@ -21,7 +21,7 @@ function ReaderScreen() {
   const { navigationState, goBack } = useNavigation();
   const { id } = navigationState.params || { id: '1' };
   const { theme, setTheme, currentThemeName, availableThemes } = useTheme();
-  const { settings: fontSettings, increaseFontSize, decreaseFontSize, textStyles: rawTextStyles, isWordTappingEnabled } = useFont();
+  const { settings: fontSettings, increaseFontSize, decreaseFontSize, textStyles: rawTextStyles } = useFont();
   
   // Memoize textStyles to prevent ReaderScreen re-renders on font changes
   const textStyles = useMemo(() => rawTextStyles, [
@@ -552,11 +552,6 @@ function ReaderScreen() {
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.colors.headerText }]} numberOfLines={1}>
           {bookTitle}
-          {!isWordTappingEnabled && (
-            <Text style={[styles.wordTappingStatus, { color: theme.colors.secondary }]}>
-              {' '}• Adjusting font...
-            </Text>
-          )}
         </Text>
         <View style={styles.headerRight}>
           {/* Chapter list button for books with chapters */}

@@ -39,6 +39,17 @@ export default React.memo(function ReliableTextRenderer({
   
   // SMART VIRTUALIZATION: Use larger windows that don't change during scroll
   const { visibleSegments, startWordIndex } = useMemo(() => {
+    // Skip expensive virtualization when word tapping is disabled (during font changes)
+    if (!isWordTappingEnabled) {
+      console.log(`🚫 VIRTUALIZATION DISABLED: during font changes`);
+      // Return a simple subset to avoid expensive recalculation
+      const allSegments = text.split(/([\s\n]+)/);
+      return {
+        visibleSegments: allSegments.slice(0, 100), // Just first 100 segments for instant response
+        startWordIndex: 0
+      };
+    }
+    
     console.log(`🎯 SMART VIRTUALIZATION: scroll=${Math.round(scrollPosition)}`);
     
     // Split all text into words and whitespace

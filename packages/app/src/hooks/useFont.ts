@@ -15,7 +15,6 @@ export interface UseFontReturn {
   resetToDefaults: () => void;
   textStyles: ReturnType<typeof fontService.getTextStyles>;
   paragraphStyles: ReturnType<typeof fontService.getParagraphStyles>;
-  isWordTappingEnabled: boolean;
 }
 
 export function useFont(): UseFontReturn {
@@ -69,6 +68,5 @@ export function useFont(): UseFontReturn {
     resetToDefaults: () => fontService.resetToDefaults(),
     textStyles,
     paragraphStyles,
-    isWordTappingEnabled: fontService.isWordTappingAvailable(),
   };
 }
