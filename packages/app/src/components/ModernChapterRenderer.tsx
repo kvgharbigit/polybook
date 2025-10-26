@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import InteractiveText from './InteractiveText';
+import HybridVirtualizedText from './HybridVirtualizedText';
 import { Chapter } from '../services/contentParser';
 import { useStableDimensions } from '../hooks/useStableDimensions';
 
@@ -23,16 +23,38 @@ export default React.memo(function ModernChapterRenderer({
   const scrollViewRef = useRef<ScrollView>(null);
   const [scrollPosition, setScrollPosition] = useState(0);
   const [contentHeight, setContentHeight] = useState(0);
+  const [debouncedScrollPosition, setDebouncedScrollPosition] = useState(0);
+  const [isScrolling, setIsScrolling] = useState(false);
+  const lastScrollTime = useRef(Date.now());
   
   // Calculate virtual pages from scroll position
   const pageHeight = height - 180; // Reserve space for header/navigation
-  const currentPage = Math.floor(scrollPosition / pageHeight) + 1;
+  const currentPage = Math.floor(debouncedScrollPosition / pageHeight) + 1;
   const totalPages = Math.max(1, Math.ceil(contentHeight / pageHeight));
   
-  // Handle scroll events
+  // Optimized scroll handling with throttling
+  const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
+  
   const handleScroll = useCallback((event: any) => {
     const newPosition = event.nativeEvent.contentOffset.y;
+    const now = Date.now();
+    
+    // Track scrolling state
+    setIsScrolling(true);
+    lastScrollTime.current = now;
+    
+    // Update text rendering immediately (for smooth scrolling)
     setScrollPosition(newPosition);
+    
+    // Debounce progress bar updates to prevent UI jumps
+    if (scrollTimeout.current) {
+      clearTimeout(scrollTimeout.current);
+    }
+    
+    scrollTimeout.current = setTimeout(() => {
+      setDebouncedScrollPosition(newPosition);
+      setIsScrolling(false); // Mark scrolling as stopped
+    }, 150);
   }, []);
   
   // Handle content size changes (for accurate page count)
@@ -40,8 +62,14 @@ export default React.memo(function ModernChapterRenderer({
     setContentHeight(contentHeight);
   }, []);
   
-  // No page navigation functions needed - just smooth scrolling
-  // Page numbers are purely informational, not functional
+  // Cleanup scroll timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollTimeout.current) {
+        clearTimeout(scrollTimeout.current);
+      }
+    };
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -65,9 +93,16 @@ export default React.memo(function ModernChapterRenderer({
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         decelerationRate="normal"
+        removeClippedSubviews={false}
+        bounces={true}
+        bouncesZoom={false}
+        alwaysBounceVertical={false}
+        contentInsetAdjustmentBehavior="never"
       >
-        <InteractiveText
+        <HybridVirtualizedText
           text={chapter.content}
+          scrollPosition={debouncedScrollPosition}
+          screenHeight={height}
           onWordTap={onWordTap}
           textStyles={textStyles}
           isHighlighted={isHighlighted}
@@ -83,7 +118,7 @@ export default React.memo(function ModernChapterRenderer({
               style={[
                 styles.progressFill, 
                 { 
-                  width: `${Math.min(100, (scrollPosition / Math.max(1, contentHeight - pageHeight)) * 100)}%`,
+                  width: `${Math.min(100, (debouncedScrollPosition / Math.max(1, contentHeight - pageHeight)) * 100)}%`,
                   backgroundColor: theme.colors.primary 
                 }
               ]} 
