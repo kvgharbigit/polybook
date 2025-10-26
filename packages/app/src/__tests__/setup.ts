@@ -39,7 +39,14 @@ jest.mock('expo-document-picker', () => ({
   getDocumentAsync: jest.fn(),
 }));
 
-// PDF.js no longer used - using simple file-based approach for PDFs
+// Mock PDF.js for PolyDoc extraction
+jest.mock('pdfjs-dist', () => ({
+  getDocument: jest.fn(),
+  GlobalWorkerOptions: {
+    workerSrc: '',
+  },
+  version: '3.11.174',
+}));
 
 // Mock React Native components
 jest.mock('react-native-render-html', () => {

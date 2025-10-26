@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
 import { PanGestureHandler, State as GestureState } from 'react-native-gesture-handler';
 import RenderHtml from 'react-native-render-html';
 import InteractiveText from './InteractiveText';
+import { PDFReader } from './PDFReader';
 import { Chapter } from '../services/contentParser';
 import { useStableDimensions } from '../hooks/useStableDimensions';
 
