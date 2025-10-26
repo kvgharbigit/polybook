@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 
 interface ReliableTextRendererProps {
@@ -24,39 +24,29 @@ export default React.memo(function ReliableTextRenderer({
   isHighlighted,
 }: ReliableTextRendererProps) {
   
-  // Calculate visible text range - only render what's on screen + small buffer
+  // Track when scrolling to freeze virtualization during momentum
+  const lastVirtualizationUpdate = useRef(0);
+  const isScrollingFast = useRef(false);
+  
+  // SMART VIRTUALIZATION: Use larger windows that don't change during scroll
   const { visibleSegments, startWordIndex } = useMemo(() => {
-    const fontSize = textStyles?.fontSize || 16;
-    const lineHeight = textStyles?.lineHeight || (fontSize * 1.6);
-    
-    // Calculate roughly how many words fit on screen
-    const linesOnScreen = Math.ceil(screenHeight / lineHeight);
-    const avgWordsPerLine = 12; // Conservative estimate
-    const wordsPerScreen = linesOnScreen * avgWordsPerLine;
-    
-    // Add small buffer for smooth scrolling (reduced from previous version)
-    const bufferScreens = 0.5; // Smaller buffer for better performance
-    const totalWordsToRender = wordsPerScreen * (1 + 2 * bufferScreens);
+    console.log(`🎯 SMART VIRTUALIZATION: scroll=${Math.round(scrollPosition)}`);
     
     // Split all text into words and whitespace
     const allSegments = text.split(/([\s\n]+)/);
     const words = allSegments.filter((segment, index) => index % 2 === 0 && segment.trim().length > 0);
     
-    // Calculate start position based on scroll
-    const scrollRatio = Math.max(0, Math.min(1, scrollPosition / Math.max(1, screenHeight * 3)));
-    const estimatedStartWord = Math.floor(scrollRatio * words.length);
-    const bufferWords = Math.floor(wordsPerScreen * bufferScreens);
+    // Calculate fixed windows based on scroll position ranges
+    // Use large windows (2000 words) that only change at major boundaries
+    const wordsPerWindow = 2000;
+    const windowIndex = Math.floor((scrollPosition / (screenHeight * 5))); // Change window every 5 screen heights
     
-    let startWordIndex = Math.max(0, estimatedStartWord - bufferWords);
-    let endWordIndex = Math.min(words.length, startWordIndex + totalWordsToRender);
+    const startWordIndex = windowIndex * wordsPerWindow;
+    const endWordIndex = Math.min(words.length, (windowIndex + 1) * wordsPerWindow);
     
-    // Prevent issues at the end
-    if (endWordIndex >= words.length - bufferWords) {
-      endWordIndex = words.length;
-      startWordIndex = Math.max(0, endWordIndex - totalWordsToRender);
-    }
+    console.log(`📋 WINDOW: ${windowIndex}, words ${startWordIndex}-${endWordIndex} of ${words.length}`);
     
-    // Find the actual segment indices for the visible word range
+    // Find actual segments for this window
     let segmentStartIndex = 0;
     let wordCount = 0;
     
@@ -87,7 +77,7 @@ export default React.memo(function ReliableTextRenderer({
       visibleSegments,
       startWordIndex,
     };
-  }, [text, scrollPosition, screenHeight, textStyles]);
+  }, [text, Math.floor(scrollPosition / (screenHeight * 5)), textStyles]); // Window-based dependency
 
   // Render segments with individual touch targets for words
   const renderSegments = useMemo(() => {
@@ -140,21 +130,24 @@ export default React.memo(function ReliableTextRenderer({
     </View>
   );
 }, (prevProps, nextProps) => {
-  // Conservative re-render logic - only update for significant changes
+  // Ultra-conservative re-render logic - prevent ALL virtualization during scroll momentum
   const scrollDiff = Math.abs(prevProps.scrollPosition - nextProps.scrollPosition);
   
   const textChanged = prevProps.text !== nextProps.text;
   const styleChanged = prevProps.textStyles?.fontSize !== nextProps.textStyles?.fontSize;
   const highlightChanged = prevProps.isHighlighted !== nextProps.isHighlighted;
   
-  // For font size changes, always update immediately (no performance cost since it's just style)
+  // For font size changes, always update immediately
   if (styleChanged) {
     return false; // Always re-render for style changes
   }
   
-  // For scroll changes, use a larger threshold to reduce re-renders
-  const significantScrollChange = scrollDiff > 200; // Increased threshold
-  const shouldUpdate = significantScrollChange || textChanged || highlightChanged;
+  // COMPLETELY disable virtualization updates during any scroll movement
+  // Only update when scroll stops completely or for major changes
+  const majorScrollChange = scrollDiff > 2000; // Very large threshold - almost never during normal scroll
+  const shouldUpdate = majorScrollChange || textChanged || highlightChanged;
+  
+  console.log(`🔒 MEMO CHECK: scrollDiff=${scrollDiff}, shouldUpdate=${shouldUpdate}`);
   
   return !shouldUpdate;
 });
