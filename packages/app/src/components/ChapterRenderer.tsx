@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, useWindowDimensions, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, useWindowDimensions, Animated, Dimensions } from 'react-native';
 import { PanGestureHandler, State as GestureState } from 'react-native-gesture-handler';
 import RenderHtml from 'react-native-render-html';
 import InteractiveText from './InteractiveText';
@@ -23,19 +23,36 @@ function ChapterRenderer({
   const { width, height } = useWindowDimensions();
   const [currentPage, setCurrentPage] = useState(0);
   
-  // Smart pagination that adapts to text size but keeps it manageable
+  // Animation values for smooth page transitions
+  const translateX = useRef(new Animated.Value(0)).current;
+  const gestureState = useRef({ isActive: false, startX: 0 }).current;
+  
+  // Dynamic pagination based on screen space - no scrolling needed
   const pages = useMemo(() => {
     const content = chapter.content;
-    const baseFontSize = 16;
-    const currentFontSize = textStyles?.fontSize || baseFontSize;
-    const fontSizeRatio = currentFontSize / baseFontSize;
+    const currentFontSize = textStyles?.fontSize || 16;
+    const lineHeight = textStyles?.lineHeight || (currentFontSize * 1.6);
     
-    // Keep pages small enough that InteractiveText always works well
-    const baseCharsPerPage = 1800; // Smaller for consistent performance
+    // Calculate available content height (screen minus header, navigation, controls)
+    const availableHeight = height - 250; // Reserve space for header/nav/controls
+    
+    // Calculate how many lines fit on screen
+    const linesPerPage = Math.floor(availableHeight / lineHeight);
+    
+    // Estimate characters per line based on font size and screen width
+    // Using a more accurate character width ratio for better estimation
+    const charWidthRatio = 0.6; // Typical character width ratio for readable fonts
+    const availableTextWidth = width - 60; // Account for horizontal padding
+    const charsPerLine = Math.floor(availableTextWidth / (currentFontSize * charWidthRatio));
+    
+    // Calculate characters that fit without scrolling
     const CHARS_PER_PAGE = Math.max(
-      Math.floor(baseCharsPerPage / fontSizeRatio),
-      1200 // Smaller minimum
+      linesPerPage * charsPerLine,
+      800 // Minimum for readability
     );
+    
+    console.log(`📖 ChapterRenderer: Dynamic pagination - Screen: ${width}x${height}, Font: ${currentFontSize}px (line height: ${lineHeight}), Available height: ${availableHeight}px`);
+    console.log(`📖 ChapterRenderer: Calculated: ${linesPerPage} lines × ${charsPerLine} chars/line = ${CHARS_PER_PAGE} chars per page`);
     
     if (content.length <= CHARS_PER_PAGE) {
       return [{ content, htmlContent: chapter.htmlContent }];
@@ -49,12 +66,40 @@ function ChapterRenderer({
     for (const paragraph of paragraphs) {
       const nextLength = currentPageContent.length + paragraph.length + 2;
       
-      if (nextLength > CHARS_PER_PAGE && currentPageContent.length > 500) {
+      // More intelligent page break logic
+      if (nextLength > CHARS_PER_PAGE && currentPageContent.length > 300) {
+        // Only break if we have substantial content
         pages.push({
           content: currentPageContent.trim(),
           htmlContent: `<div>${currentPageContent.trim().replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')}</div>`
         });
         currentPageContent = paragraph;
+      } else if (nextLength > CHARS_PER_PAGE * 1.5) {
+        // If paragraph is very long, force a break even with less content
+        if (currentPageContent.length > 100) {
+          pages.push({
+            content: currentPageContent.trim(),
+            htmlContent: `<div>${currentPageContent.trim().replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')}</div>`
+          });
+          currentPageContent = paragraph;
+        } else {
+          // Very first paragraph is too long, need to split it
+          const words = paragraph.split(' ');
+          let currentChunk = currentPageContent ? currentPageContent + '\n\n' : '';
+          
+          for (const word of words) {
+            if ((currentChunk + word).length > CHARS_PER_PAGE && currentChunk.length > 300) {
+              pages.push({
+                content: currentChunk.trim(),
+                htmlContent: `<div>${currentChunk.trim().replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')}</div>`
+              });
+              currentChunk = word;
+            } else {
+              currentChunk += (currentChunk && !currentChunk.endsWith(' ') ? ' ' : '') + word;
+            }
+          }
+          currentPageContent = currentChunk;
+        }
       } else {
         currentPageContent += (currentPageContent ? '\n\n' : '') + paragraph;
       }
@@ -67,8 +112,17 @@ function ChapterRenderer({
       });
     }
     
+    // Log final pagination results
+    const pageSizes = pages.map(p => p.content.length);
+    const avgPageSize = pageSizes.reduce((sum, size) => sum + size, 0) / pages.length;
+    const maxPageSize = Math.max(...pageSizes);
+    const minPageSize = Math.min(...pageSizes);
+    
+    console.log(`📖 ChapterRenderer: Created ${pages.length} pages from ${content.length} chars`);
+    console.log(`📖 ChapterRenderer: Page sizes - Avg: ${Math.round(avgPageSize)}, Min: ${minPageSize}, Max: ${maxPageSize}`);
+    
     return pages;
-  }, [chapter.content, textStyles?.fontSize]);
+  }, [chapter.content, chapter.id, textStyles?.fontSize, textStyles?.lineHeight, width, height]);
   
   const currentPageData = pages[currentPage] || pages[0];
   const totalPages = pages.length;
@@ -79,6 +133,11 @@ function ChapterRenderer({
       setCurrentPage(0);
     }
   }, [totalPages, currentPage]);
+  
+  // Update animation position when page changes
+  React.useEffect(() => {
+    translateX.setValue(-currentPage * width);
+  }, [currentPage, width, translateX]);
   
   const goToNextPage = () => {
     if (currentPage < totalPages - 1) {
@@ -92,26 +151,50 @@ function ChapterRenderer({
     }
   };
 
-  // Handle swipe gestures for page navigation
+
+  // Handle swipe gestures with smooth visual feedback
   const onGestureEvent = (event: any) => {
-    // Handle gesture events if needed
+    const { translationX } = event.nativeEvent;
+    const baseOffset = -currentPage * width;
+    
+    // Update animation value with gesture + base offset
+    translateX.setValue(baseOffset + translationX);
   };
 
   const onHandlerStateChange = (event: any) => {
-    if (event.nativeEvent.state === GestureState.END) {
-      const { translationX, velocityX } = event.nativeEvent;
+    const { state, translationX, velocityX } = event.nativeEvent;
+    
+    if (state === GestureState.END || state === GestureState.CANCELLED) {
+      // Determine if we should change pages based on gesture
+      const swipeThreshold = width * 0.25; // 25% of screen width
+      const velocityThreshold = 500;
+      const shouldChangePage = Math.abs(translationX) > swipeThreshold || Math.abs(velocityX) > velocityThreshold;
       
-      // Swipe right (positive translationX) = previous page
-      // Swipe left (negative translationX) = next page
-      if (Math.abs(translationX) > 50 || Math.abs(velocityX) > 500) {
-        if (translationX > 0 && velocityX > -300) {
+      let newPage = currentPage;
+      
+      if (shouldChangePage) {
+        if (translationX > 0 && currentPage > 0) {
           // Swipe right - previous page
-          goToPreviousPage();
-        } else if (translationX < 0 && velocityX < 300) {
+          newPage = currentPage - 1;
+        } else if (translationX < 0 && currentPage < totalPages - 1) {
           // Swipe left - next page
-          goToNextPage();
+          newPage = currentPage + 1;
         }
       }
+      
+      // Update page state immediately for responsive UI
+      if (newPage !== currentPage) {
+        setCurrentPage(newPage);
+      }
+      
+      // Animate to the target page position
+      const targetOffset = -newPage * width;
+      Animated.spring(translateX, {
+        toValue: targetOffset,
+        useNativeDriver: true,
+        tension: 100,
+        friction: 8,
+      }).start();
     }
   };
 
@@ -129,21 +212,50 @@ function ChapterRenderer({
         )}
       </View>
       
-      {/* Page Content with Swipe Gestures */}
+      {/* Page Content with Smooth Swipe Gestures */}
       <PanGestureHandler
         onGestureEvent={onGestureEvent}
         onHandlerStateChange={onHandlerStateChange}
         minPointers={1}
         maxPointers={1}
+        activeOffsetX={[-10, 10]}
+        failOffsetY={[-20, 20]}
       >
-        <View style={styles.contentArea}>
-          <InteractiveText
-            text={currentPageData.content}
-            onWordTap={onWordTap}
-            textStyles={textStyles}
-            isHighlighted={isHighlighted}
-          />
-        </View>
+        <Animated.View style={styles.contentArea}>
+          <Animated.View 
+            style={[
+              styles.pageContainer,
+              {
+                transform: [{ translateX }],
+                width: width * totalPages, // Total width for all pages
+              }
+            ]}
+          >
+            {/* Render current page and adjacent pages for smooth transitions */}
+            {pages
+              .map((pageData, index) => ({ pageData, index }))
+              .filter(({ index }) => Math.abs(index - currentPage) <= 1)
+              .map(({ pageData, index }) => (
+                <View 
+                  key={index}
+                  style={[
+                    styles.singlePage,
+                    { 
+                      left: index * width,
+                      width: width, // Full screen width per page
+                    }
+                  ]}
+                >
+                  <InteractiveText
+                    text={pageData.content}
+                    onWordTap={onWordTap}
+                    textStyles={textStyles}
+                    isHighlighted={isHighlighted}
+                  />
+                </View>
+              ))}
+          </Animated.View>
+        </Animated.View>
       </PanGestureHandler>
       
       {/* Subtle Page Navigation (swipe is primary) */}
@@ -154,7 +266,7 @@ function ChapterRenderer({
               {currentPage + 1} / {totalPages}
             </Text>
             <Text style={[styles.swipeHint, { color: theme.colors.textSecondary }]}>
-              ← Swipe to navigate →
+              ← Drag to turn pages →
             </Text>
           </View>
         </View>
@@ -192,7 +304,20 @@ const styles = StyleSheet.create({
   },
   contentArea: {
     flex: 1,
-    minHeight: 400, // Ensure consistent page height
+    minHeight: 400,
+    overflow: 'hidden',
+  },
+  pageContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    position: 'relative',
+  },
+  singlePage: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    paddingHorizontal: 30,
+    justifyContent: 'flex-start',
   },
   pageNavigation: {
     justifyContent: 'center',
@@ -214,24 +339,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontStyle: 'italic',
     opacity: 0.7,
-  },
-  simpleTextContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  simpleText: {
-    fontSize: 16,
-    lineHeight: 28,
-    textAlign: 'justify',
-  },
-  performanceNote: {
-    fontSize: 12,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    marginTop: 20,
-    padding: 10,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    borderRadius: 6,
   },
 });
 

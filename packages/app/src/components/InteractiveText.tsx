@@ -9,7 +9,7 @@ interface InteractiveTextProps {
   textStyles?: any;
 }
 
-export default function InteractiveText({ 
+function InteractiveText({ 
   text, 
   onWordTap, 
   style, 
@@ -76,4 +76,13 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: 'bold',
   },
+});
+
+// Memoize to prevent unnecessary re-renders
+export default React.memo(InteractiveText, (prevProps, nextProps) => {
+  return (
+    prevProps.text === nextProps.text &&
+    prevProps.textStyles?.fontSize === nextProps.textStyles?.fontSize &&
+    prevProps.isHighlighted === nextProps.isHighlighted
+  );
 });
