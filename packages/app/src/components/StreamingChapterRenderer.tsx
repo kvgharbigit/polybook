@@ -30,9 +30,17 @@ export default React.memo(function StreamingChapterRenderer({
     wordSpacing: textStyles?.wordSpacing
   });
   
-  // Import font service to check word tapping state
+  // Subscribe to word tapping state changes without triggering ReaderScreen re-renders
   const { fontService } = require('../services/fontService');
-  const isWordTappingEnabled = fontService.isWordTappingAvailable();
+  const [isWordTappingEnabled, setIsWordTappingEnabled] = useState(fontService.isWordTappingAvailable());
+  
+  useEffect(() => {
+    const unsubscribe = fontService.subscribeToWordTapping((isEnabled: boolean) => {
+      console.log(`🔄 StreamingChapterRenderer: Word tapping state changed to ${isEnabled}`);
+      setIsWordTappingEnabled(isEnabled);
+    });
+    return unsubscribe;
+  }, []);
   const { width, height } = useStableDimensions(150, 15);
   const scrollViewRef = useRef<ScrollView>(null);
   const [scrollPosition, setScrollPosition] = useState(0);

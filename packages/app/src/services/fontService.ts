@@ -62,6 +62,7 @@ export class FontService {
   private static instance: FontService;
   private currentSettings: FontSettings = DEFAULT_SETTINGS;
   private listeners: Array<(settings: FontSettings) => void> = [];
+  private wordTappingListeners: Array<(isEnabled: boolean) => void> = [];
   private debounceTimer: NodeJS.Timeout | null = null;
   private wordTappingDebounceTimer: NodeJS.Timeout | null = null;
   private readonly DEBOUNCE_DELAY = 300; // 300ms delay
@@ -261,6 +262,7 @@ export class FontService {
   private disableWordTapping(): void {
     console.log('🚫 FontService: Disabling word tapping during font changes');
     this.isWordTappingEnabled = false;
+    this.notifyWordTappingListeners();
   }
 
   /**
@@ -277,8 +279,8 @@ export class FontService {
       console.log('✅ FontService: Re-enabling word tapping - font changes complete');
       this.isWordTappingEnabled = true;
       this.wordTappingDebounceTimer = null;
-      // DON'T notify listeners - word tapping state is checked directly in components
-      // This prevents unnecessary re-renders when word tapping is re-enabled
+      // Notify only word tapping listeners (not font listeners) to avoid ReaderScreen re-renders
+      this.notifyWordTappingListeners();
     }, this.WORD_TAPPING_DELAY);
   }
 
@@ -287,6 +289,31 @@ export class FontService {
    */
   isWordTappingAvailable(): boolean {
     return this.isWordTappingEnabled;
+  }
+
+  /**
+   * Subscribe to word tapping state changes only (doesn't trigger ReaderScreen re-renders)
+   */
+  subscribeToWordTapping(listener: (isEnabled: boolean) => void): () => void {
+    this.wordTappingListeners.push(listener);
+    // Call listener immediately with current state
+    listener(this.isWordTappingEnabled);
+    
+    // Return unsubscribe function
+    return () => {
+      const index = this.wordTappingListeners.indexOf(listener);
+      if (index > -1) {
+        this.wordTappingListeners.splice(index, 1);
+      }
+    };
+  }
+
+  /**
+   * Notify word tapping listeners only
+   */
+  private notifyWordTappingListeners(): void {
+    console.log(`📢 FontService: Notifying word tapping listeners - enabled: ${this.isWordTappingEnabled}`);
+    this.wordTappingListeners.forEach(listener => listener(this.isWordTappingEnabled));
   }
 
   /**
