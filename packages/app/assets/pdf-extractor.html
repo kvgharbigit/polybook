@@ -1,0 +1,272 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>PDF PolyDoc Extractor</title>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.js"></script>
+  <style>
+    body { margin: 0; padding: 20px; font-family: system-ui; }
+    .status { color: #666; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="status" id="status">Ready for PDF extraction...</div>
+
+  <script>
+    // Configure PDF.js worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.js';
+
+    function post(type, payload) {
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type, ...payload }));
+      }
+    }
+
+    function updateStatus(message) {
+      document.getElementById('status').textContent = message;
+      post('status', { message });
+    }
+
+    async function extractPolyDoc(base64, opts = {}) {
+      try {
+        updateStatus('🔄 Loading PDF...');
+        
+        // Convert base64 to ArrayBuffer
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        // Load PDF document
+        const loadingTask = pdfjsLib.getDocument({ 
+          data: bytes, 
+          useSystemFonts: true, 
+          isEvalSupported: false 
+        });
+        const pdf = await loadingTask.promise;
+
+        updateStatus(`📄 PDF loaded: ${pdf.numPages} pages`);
+        post('meta', { pageCount: pdf.numPages });
+
+        // Extract metadata
+        const metadata = await pdf.getMetadata();
+        post('metadata', { info: metadata.info });
+
+        const blocks = [];
+        const pages = [];
+
+        // Extract text from all pages
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          try {
+            updateStatus(`📖 Processing page ${pageNum}/${pdf.numPages}...`);
+            
+            const page = await pdf.getPage(pageNum);
+            const textContent = await page.getTextContent();
+
+            // Extract text items with position information
+            const textItems = textContent.items
+              .filter(item => item.str && item.str.trim().length > 0)
+              .map(item => ({
+                text: item.str,
+                x: item.transform[4],
+                y: item.transform[5],
+                width: item.width,
+                height: item.height,
+                fontName: item.fontName
+              }));
+
+            if (textItems.length === 0) {
+              console.log(`Page ${pageNum} has no text content (possibly scanned)`);
+              continue;
+            }
+
+            // Simple text reconstruction: sort by Y (top-bottom), then X (left-right)
+            const sortedItems = textItems.sort((a, b) => {
+              const yDiff = b.y - a.y; // PDF coordinates are bottom-up
+              if (Math.abs(yDiff) > 5) return yDiff; // Different lines
+              return a.x - b.x; // Same line, left to right
+            });
+
+            // Build readable text
+            let pageText = '';
+            let lastY = null;
+
+            for (const item of sortedItems) {
+              const text = item.text.trim();
+              if (!text) continue;
+
+              // Detect line breaks
+              if (lastY !== null && Math.abs(item.y - lastY) > 5) {
+                pageText += '\n';
+              } else if (pageText.length > 0 && !pageText.endsWith(' ') && !text.startsWith(' ')) {
+                pageText += ' ';
+              }
+
+              pageText += text;
+              lastY = item.y;
+            }
+
+            // Clean up text
+            const cleanText = pageText
+              .replace(/\s+/g, ' ')
+              .replace(/(\w)-\s*\n(\w)/g, '$1$2') // Fix hyphenated words
+              .trim();
+
+            if (cleanText.length > 0) {
+              pages.push(cleanText);
+
+              // Split into paragraphs
+              const paragraphs = cleanText
+                .split(/\n\s*\n/)
+                .map(p => p.trim())
+                .filter(p => p.length > 0);
+
+              // Add paragraphs as blocks
+              paragraphs.forEach(paragraph => {
+                blocks.push({
+                  type: 'paragraph',
+                  text: paragraph,
+                  page: pageNum
+                });
+              });
+            }
+
+            // Stream partial results every 5 pages
+            if (pageNum % 5 === 0 || pageNum === pdf.numPages) {
+              if (blocks.length > 0) {
+                post('chunk', { blocks: [...blocks] });
+                blocks.length = 0; // Clear for next batch
+              }
+            }
+          } catch (error) {
+            console.warn(`Error processing page ${pageNum}:`, error);
+            // Continue with other pages
+          }
+        }
+
+        // Send any remaining blocks
+        if (blocks.length > 0) {
+          post('chunk', { blocks });
+        }
+
+        // Basic chapter detection
+        updateStatus('🔍 Detecting chapters...');
+        const chapters = detectChapters(pages);
+        post('chapters', { chapters });
+
+        updateStatus('✅ PDF extraction complete!');
+        post('done', { 
+          success: true,
+          totalPages: pdf.numPages,
+          totalBlocks: pages.length
+        });
+
+      } catch (error) {
+        updateStatus('❌ Extraction failed');
+        post('error', { 
+          message: error.message || String(error)
+        });
+      }
+    }
+
+    function detectChapters(pages) {
+      const chapters = [];
+      const chapterPatterns = [
+        /^(CHAPTER|Chapter)\s+([IVXLCDM]+|\d+)[^\n]*$/,
+        /^([IVXLCDM]+)\.\s*[A-Z][^\n]{5,50}$/,
+        /^\d+\.\s*[A-Z][^\n]{5,50}$/,
+      ];
+
+      let currentChapter = null;
+      let chapterContent = '';
+      let chapterIndex = 0;
+
+      // Combine all pages into paragraphs for chapter detection
+      const allParagraphs = pages.join('\n\n').split(/\n\s*\n/);
+
+      for (let i = 0; i < allParagraphs.length; i++) {
+        const paragraph = allParagraphs[i].trim();
+        if (!paragraph) continue;
+
+        let isChapterStart = false;
+        let chapterTitle = '';
+
+        // Check if this paragraph looks like a chapter heading
+        for (const pattern of chapterPatterns) {
+          const match = paragraph.match(pattern);
+          if (match && paragraph.length < 100) {
+            isChapterStart = true;
+            chapterTitle = paragraph;
+            break;
+          }
+        }
+
+        if (isChapterStart) {
+          // Save previous chapter
+          if (currentChapter && chapterContent.trim().length > 500) {
+            currentChapter.content = chapterContent.trim();
+            chapters.push(currentChapter);
+          }
+
+          // Start new chapter
+          currentChapter = {
+            id: `pdf-chapter-${chapterIndex}`,
+            title: chapterTitle,
+            content: '',
+            order: chapterIndex
+          };
+          chapterContent = '';
+          chapterIndex++;
+        } else if (currentChapter) {
+          chapterContent += paragraph + '\n\n';
+        }
+      }
+
+      // Add the last chapter
+      if (currentChapter && chapterContent.trim().length > 500) {
+        currentChapter.content = chapterContent.trim();
+        chapters.push(currentChapter);
+      }
+
+      // If no chapters found, create page-based sections
+      if (chapters.length <= 1 && pages.length > 1) {
+        return pages.map((pageContent, index) => ({
+          id: `pdf-page-${index}`,
+          title: `Page ${index + 1}`,
+          content: pageContent.trim(),
+          order: index
+        })).filter(chapter => chapter.content.length > 100);
+      }
+
+      return chapters;
+    }
+
+    // Message protocol: {cmd: 'extract', base64: '...', opts: {...}}
+    document.addEventListener('message', (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.cmd === 'extract') {
+          extractPolyDoc(msg.base64, msg.opts || {});
+        }
+      } catch (error) {
+        post('error', { message: 'Bad message: ' + error });
+      }
+    });
+
+    // Also listen for WebView postMessage (different event in some cases)
+    window.addEventListener('message', (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.cmd === 'extract') {
+          extractPolyDoc(msg.base64, msg.opts || {});
+        }
+      } catch (error) {
+        post('error', { message: 'Bad message: ' + error });
+      }
+    });
+
+    updateStatus('🚀 PDF extractor ready');
+  </script>
+</body>
+</html>
