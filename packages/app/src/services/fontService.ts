@@ -63,7 +63,10 @@ export class FontService {
   private currentSettings: FontSettings = DEFAULT_SETTINGS;
   private listeners: Array<(settings: FontSettings) => void> = [];
   private debounceTimer: NodeJS.Timeout | null = null;
+  private wordTappingDebounceTimer: NodeJS.Timeout | null = null;
   private readonly DEBOUNCE_DELAY = 300; // 300ms delay
+  private readonly WORD_TAPPING_DELAY = 500; // 500ms delay for word tapping re-enable
+  private isWordTappingEnabled: boolean = true;
 
   static getInstance(): FontService {
     if (!FontService.instance) {
@@ -100,11 +103,17 @@ export class FontService {
    * Update font settings with single immediate notification for better performance
    */
   updateSettings(settings: Partial<FontSettings>): void {
-    // Update settings and notify immediately - eliminates double updates
+    console.log('🎨 FontService: updateSettings called', settings);
+    const start = performance.now();
+    
+    // Update settings for immediate visual changes
     this.currentSettings = {
       ...this.currentSettings,
       ...settings,
     };
+    
+    // Disable word tapping during font changes to prevent expensive recalibration
+    this.disableWordTapping();
     
     // Clear any pending debounced updates
     if (this.debounceTimer) {
@@ -112,8 +121,16 @@ export class FontService {
       this.debounceTimer = null;
     }
     
-    // Notify listeners immediately for responsive UI
+    // Notify listeners immediately for responsive UI (visual changes only)
+    const notifyStart = performance.now();
     this.notifyListeners();
+    const notifyDuration = performance.now() - notifyStart;
+    
+    // Debounced re-enable of word tapping after user stops changing font
+    this.debouncedEnableWordTapping();
+    
+    const totalDuration = performance.now() - start;
+    console.log(`🎨 FontService: updateSettings complete - notify: ${notifyDuration.toFixed(2)}ms, total: ${totalDuration.toFixed(2)}ms`);
     
     // TODO: Save to user settings storage
   }
@@ -231,7 +248,45 @@ export class FontService {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
     }
+    if (this.wordTappingDebounceTimer) {
+      clearTimeout(this.wordTappingDebounceTimer);
+      this.wordTappingDebounceTimer = null;
+    }
     this.listeners = [];
+  }
+
+  /**
+   * Disable word tapping temporarily to prevent expensive touch recalibration
+   */
+  private disableWordTapping(): void {
+    console.log('🚫 FontService: Disabling word tapping during font changes');
+    this.isWordTappingEnabled = false;
+  }
+
+  /**
+   * Debounced re-enable of word tapping after font changes stop
+   */
+  private debouncedEnableWordTapping(): void {
+    // Clear any existing timer
+    if (this.wordTappingDebounceTimer) {
+      clearTimeout(this.wordTappingDebounceTimer);
+    }
+    
+    // Set new timer to re-enable word tapping
+    this.wordTappingDebounceTimer = setTimeout(() => {
+      console.log('✅ FontService: Re-enabling word tapping - font changes complete');
+      this.isWordTappingEnabled = true;
+      this.wordTappingDebounceTimer = null;
+      // Notify components that word tapping is available again
+      this.notifyListeners();
+    }, this.WORD_TAPPING_DELAY);
+  }
+
+  /**
+   * Check if word tapping is currently enabled
+   */
+  isWordTappingAvailable(): boolean {
+    return this.isWordTappingEnabled;
   }
 
   /**

@@ -8,6 +8,7 @@ interface ReliableTextRendererProps {
   onWordTap: (word: string, event: any) => void;
   textStyles?: any;
   isHighlighted?: (index: number) => boolean;
+  isWordTappingEnabled?: boolean;
 }
 
 /**
@@ -22,7 +23,15 @@ export default React.memo(function ReliableTextRenderer({
   onWordTap,
   textStyles,
   isHighlighted,
+  isWordTappingEnabled = true,
 }: ReliableTextRendererProps) {
+  
+  console.log('🔄 ReliableTextRenderer: Re-rendering with textStyles', {
+    fontSize: textStyles?.fontSize,
+    lineHeight: textStyles?.lineHeight,
+    wordSpacing: textStyles?.wordSpacing,
+    wordTappingEnabled: isWordTappingEnabled
+  });
   
   // Track when scrolling to freeze virtualization during momentum
   const lastVirtualizationUpdate = useRef(0);
@@ -91,25 +100,42 @@ export default React.memo(function ReliableTextRenderer({
         const wordIndex = currentWordIndex;
         currentWordIndex++;
         
-        return (
-          <TouchableOpacity 
-            key={`${startWordIndex}-${segmentIndex}-${wordIndex}`}
-            onPress={(event) => onWordTap(segment.trim(), event)}
-            style={[
-              styles.wordContainer,
-              highlighted && styles.wordContainerHighlighted,
-            ]}
-            activeOpacity={0.7}
-          >
-            <Text style={[
-              styles.word, 
-              textStyles,
-              highlighted && styles.wordHighlighted,
-            ]}>
+        // Conditionally render as touchable or plain text based on word tapping state
+        if (isWordTappingEnabled) {
+          return (
+            <TouchableOpacity 
+              key={`${startWordIndex}-${segmentIndex}-${wordIndex}`}
+              onPress={(event) => onWordTap(segment.trim(), event)}
+              style={[
+                styles.wordContainer,
+                highlighted && styles.wordContainerHighlighted,
+              ]}
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                styles.word, 
+                textStyles,
+                highlighted && styles.wordHighlighted,
+              ]}>
+                {segment}
+              </Text>
+            </TouchableOpacity>
+          );
+        } else {
+          // Render as plain text when word tapping is disabled (during font changes)
+          return (
+            <Text 
+              key={`${startWordIndex}-${segmentIndex}-${wordIndex}-disabled`}
+              style={[
+                styles.word, 
+                textStyles,
+                highlighted && styles.wordHighlighted,
+              ]}
+            >
               {segment}
             </Text>
-          </TouchableOpacity>
-        );
+          );
+        }
       } else {
         // Render whitespace as plain text
         return (
@@ -122,7 +148,7 @@ export default React.memo(function ReliableTextRenderer({
         );
       }
     });
-  }, [visibleSegments, startWordIndex, onWordTap, textStyles, isHighlighted]);
+  }, [visibleSegments, startWordIndex, onWordTap, textStyles, isHighlighted, isWordTappingEnabled]);
 
   return (
     <View style={styles.container}>

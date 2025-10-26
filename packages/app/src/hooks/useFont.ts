@@ -15,6 +15,7 @@ export interface UseFontReturn {
   resetToDefaults: () => void;
   textStyles: ReturnType<typeof fontService.getTextStyles>;
   paragraphStyles: ReturnType<typeof fontService.getParagraphStyles>;
+  isWordTappingEnabled: boolean;
 }
 
 export function useFont(): UseFontReturn {
@@ -30,12 +31,28 @@ export function useFont(): UseFontReturn {
 
   // Memoize text styles to prevent unnecessary re-renders
   const textStyles = useMemo(() => {
-    return fontService.getTextStyles();
+    console.log('📝 useFont: textStyles recalculating', {
+      fontSize: settings.fontSize,
+      lineHeight: settings.lineHeight,
+      wordSpacing: settings.wordSpacing
+    });
+    const start = performance.now();
+    const styles = fontService.getTextStyles();
+    const duration = performance.now() - start;
+    console.log(`📝 useFont: textStyles calc took ${duration.toFixed(2)}ms`, styles);
+    return styles;
   }, [settings.fontSize, settings.lineHeight, settings.wordSpacing]);
 
   // Memoize paragraph styles to prevent unnecessary re-renders  
   const paragraphStyles = useMemo(() => {
-    return fontService.getParagraphStyles();
+    console.log('📝 useFont: paragraphStyles recalculating', {
+      paragraphSpacing: settings.paragraphSpacing
+    });
+    const start = performance.now();
+    const styles = fontService.getParagraphStyles();
+    const duration = performance.now() - start;
+    console.log(`📝 useFont: paragraphStyles calc took ${duration.toFixed(2)}ms`, styles);
+    return styles;
   }, [settings.paragraphSpacing]);
 
   return {
@@ -52,5 +69,6 @@ export function useFont(): UseFontReturn {
     resetToDefaults: () => fontService.resetToDefaults(),
     textStyles,
     paragraphStyles,
+    isWordTappingEnabled: fontService.isWordTappingAvailable(),
   };
 }

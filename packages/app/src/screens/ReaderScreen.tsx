@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useReducer, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useReducer, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Modal, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '../navigation/SimpleNavigator';
@@ -15,13 +15,20 @@ import { useFont } from '../hooks/useFont';
 import { useTTSHighlight } from '../hooks/useTTSHighlight';
 import { Chapter } from '../services/contentParser';
 
-export default function ReaderScreen() {
+function ReaderScreen() {
   console.log('🔵 ReaderScreen: Component mounting/re-rendering');
   
   const { navigationState, goBack } = useNavigation();
   const { id } = navigationState.params || { id: '1' };
   const { theme, setTheme, currentThemeName, availableThemes } = useTheme();
-  const { settings: fontSettings, increaseFontSize, decreaseFontSize, textStyles } = useFont();
+  const { settings: fontSettings, increaseFontSize, decreaseFontSize, textStyles: rawTextStyles, isWordTappingEnabled } = useFont();
+  
+  // Memoize textStyles to prevent ReaderScreen re-renders on font changes
+  const textStyles = useMemo(() => rawTextStyles, [
+    rawTextStyles?.fontSize, 
+    rawTextStyles?.lineHeight, 
+    rawTextStyles?.letterSpacing
+  ]);
   const { highlightWord, isWordHighlighted, clearHighlight } = useTTSHighlight();
   
   const [content, setContent] = useState<string>('');
@@ -543,7 +550,14 @@ export default function ReaderScreen() {
         <TouchableOpacity onPress={() => goBack()}>
           <Text style={[styles.backButton, { color: theme.colors.primary }]}>← Back</Text>
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.colors.headerText }]} numberOfLines={1}>{bookTitle}</Text>
+        <Text style={[styles.headerTitle, { color: theme.colors.headerText }]} numberOfLines={1}>
+          {bookTitle}
+          {!isWordTappingEnabled && (
+            <Text style={[styles.wordTappingStatus, { color: theme.colors.secondary }]}>
+              {' '}• Adjusting font...
+            </Text>
+          )}
+        </Text>
         <View style={styles.headerRight}>
           {/* Chapter list button for books with chapters */}
           {isEpub && chapters.length > 0 && !isLoading && !error && (
@@ -727,6 +741,9 @@ export default function ReaderScreen() {
   );
 }
 
+// Memoize ReaderScreen to prevent re-renders on font changes
+export default React.memo(ReaderScreen);
+
 const createStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
@@ -754,6 +771,12 @@ const createStyles = (theme: any) => StyleSheet.create({
     textAlign: 'center',
     color: theme.colors.textSecondary,
     opacity: 0.8,
+  },
+  wordTappingStatus: {
+    fontSize: 12,
+    fontWeight: '400',
+    fontStyle: 'italic',
+    opacity: 0.7,
   },
   headerRight: {
     flexDirection: 'row',

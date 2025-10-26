@@ -23,6 +23,16 @@ export default React.memo(function StreamingChapterRenderer({
   theme,
   isHighlighted,
 }: StreamingChapterRendererProps) {
+  
+  console.log('🚀 StreamingChapterRenderer: Re-rendering with textStyles', {
+    fontSize: textStyles?.fontSize,
+    lineHeight: textStyles?.lineHeight,
+    wordSpacing: textStyles?.wordSpacing
+  });
+  
+  // Import font service to check word tapping state
+  const { fontService } = require('../services/fontService');
+  const isWordTappingEnabled = fontService.isWordTappingAvailable();
   const { width, height } = useStableDimensions(150, 15);
   const scrollViewRef = useRef<ScrollView>(null);
   const [scrollPosition, setScrollPosition] = useState(0);
@@ -230,6 +240,7 @@ export default React.memo(function StreamingChapterRenderer({
             onWordTap={onWordTap}
             textStyles={textStyles}
             isHighlighted={isHighlighted}
+            isWordTappingEnabled={isWordTappingEnabled}
           />
         )}
       </ScrollView>
