@@ -80,7 +80,8 @@ class DatabaseService {
         word_count INTEGER NOT NULL DEFAULT 0,
         estimated_reading_time INTEGER NOT NULL DEFAULT 0,
         parsed_at INTEGER NOT NULL,
-        content_version TEXT NOT NULL DEFAULT '1.0',
+        content_version TEXT NOT NULL DEFAULT '2.0',
+        chapters TEXT, -- JSON string of EPUB chapters
         FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
       );
 
@@ -123,6 +124,15 @@ class DatabaseService {
     `;
 
     await this.db.execAsync(createTablesSQL);
+    
+    // Migration: Add chapters column if it doesn't exist
+    try {
+      await this.db.execAsync(`ALTER TABLE book_content ADD COLUMN chapters TEXT;`);
+      console.log('Database: Added chapters column to existing table');
+    } catch (error) {
+      // Column already exists, ignore error
+      console.log('Database: Chapters column already exists or migration failed');
+    }
   }
 
   // Book operations
@@ -413,8 +423,8 @@ class DatabaseService {
     const id = Crypto.randomUUID();
 
     await this.db.runAsync(`
-      INSERT OR REPLACE INTO book_content (id, book_id, content, word_count, estimated_reading_time, parsed_at, content_version)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO book_content (id, book_id, content, word_count, estimated_reading_time, parsed_at, content_version, chapters)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       id,
       bookContent.bookId,
@@ -423,6 +433,7 @@ class DatabaseService {
       bookContent.estimatedReadingTime,
       bookContent.parsedAt.getTime(),
       bookContent.contentVersion,
+      (bookContent as any).chapters ? JSON.stringify((bookContent as any).chapters) : null,
     ]);
 
     return id;
@@ -438,7 +449,7 @@ class DatabaseService {
 
     if (!result) return null;
 
-    return {
+    const bookContent: any = {
       id: result.id,
       bookId: result.book_id,
       content: result.content,
@@ -447,6 +458,18 @@ class DatabaseService {
       parsedAt: new Date(result.parsed_at),
       contentVersion: result.content_version,
     };
+
+    // Parse chapters if they exist
+    if (result.chapters) {
+      try {
+        bookContent.chapters = JSON.parse(result.chapters);
+      } catch (error) {
+        console.warn('Failed to parse chapters JSON:', error);
+        bookContent.chapters = null;
+      }
+    }
+
+    return bookContent;
   }
 
   async deleteBookContent(bookId: string): Promise<void> {

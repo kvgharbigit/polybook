@@ -117,11 +117,19 @@ export default function ReaderScreen() {
       console.log('📖 loadBookContent: Found book:', { title: book.title, format: book.format, filePath: book.filePath });
       setBookTitle(`${book.title} (${book.format.toUpperCase()})`);
 
-      // Check if content is already cached
+      // Check if content is already cached and compatible
       console.log('📖 loadBookContent: Checking for cached content');
       let bookContent = await db.getBookContent(book.id);
       
-      if (!bookContent) {
+      // For EPUB files, check if we need to re-parse due to missing chapters or old version
+      const needsReparse = bookContent && book.format === 'epub' && 
+        (!bookContent.chapters || bookContent.contentVersion === '1.0');
+      
+      if (!bookContent || needsReparse) {
+        if (needsReparse) {
+          console.log('📖 loadBookContent: EPUB needs re-parsing for chapters support');
+          await db.deleteBookContent(book.id);
+        }
         console.log('📖 loadBookContent: No cached content found, parsing file for first time');
         console.log('📖 loadBookContent: Parsing file:', book.filePath, 'with format:', book.format);
         
@@ -141,7 +149,7 @@ export default function ReaderScreen() {
             wordCount: parsed.wordCount,
             estimatedReadingTime: parsed.estimatedReadingTime,
             parsedAt: new Date(),
-            contentVersion: '1.0',
+            contentVersion: '2.0',
             chapters: parsed.chapters, // Include chapters if available
           };
           
