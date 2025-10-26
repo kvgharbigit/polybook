@@ -19,10 +19,16 @@ export class PDFService {
       });
       
       // Convert base64 to ArrayBuffer
-      const binaryString = atob(pdfData);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
+      let bytes: Uint8Array;
+      try {
+        const binaryString = atob(pdfData);
+        bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+      } catch (error) {
+        console.error('📄 PDFService: Error decoding base64:', error);
+        throw new Error('Invalid base64 data');
       }
       
       // Load the PDF document
@@ -39,11 +45,12 @@ export class PDFService {
       let author = 'Unknown Author';
       
       if (metadata.info) {
-        if (metadata.info.Title && metadata.info.Title.trim().length > 0) {
-          title = metadata.info.Title.trim();
+        const info = metadata.info as any;
+        if (info.Title && typeof info.Title === 'string' && info.Title.trim().length > 0) {
+          title = info.Title.trim();
         }
-        if (metadata.info.Author && metadata.info.Author.trim().length > 0) {
-          author = metadata.info.Author.trim();
+        if (info.Author && typeof info.Author === 'string' && info.Author.trim().length > 0) {
+          author = info.Author.trim();
         }
       }
       
