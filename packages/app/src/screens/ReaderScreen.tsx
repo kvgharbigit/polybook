@@ -51,8 +51,51 @@ export default function ReaderScreen() {
   // TTS state
   const [isTTSEnabled, setIsTTSEnabled] = useState(true);
   
+  // Large document chunking state
+  const [isChunkingLargeDocument, setIsChunkingLargeDocument] = useState(false);
+  const [pseudoChapters, setPseudoChapters] = useState<Chapter[]>([]);
+  
   // Force re-render hook
   const [, forceUpdate] = useReducer(x => x + 1, 0);
+  
+  // Handle large document chunking in background
+  useEffect(() => {
+    const processLargeDocument = async () => {
+      // Only process if content is large and we don't already have chapters
+      if (content.length > 100000 && chapters.length === 0 && !isChunkingLargeDocument) {
+        console.log(`📚 ReaderScreen: Large document detected (${content.length} chars), chunking in background...`);
+        setIsChunkingLargeDocument(true);
+        
+        try {
+          // Defer to next tick to avoid blocking render
+          await new Promise(resolve => setTimeout(resolve, 0));
+          
+          const chunks = ContentParser.splitIntoChunks(content, 15000);
+          console.log(`📚 ReaderScreen: Split into ${chunks.length} chunks`);
+          
+          const newPseudoChapters = chunks.map((chunk, index) => ({
+            id: chunk.id,
+            title: `Section ${index + 1}`,
+            content: chunk.text,
+            htmlContent: `<div>${chunk.text.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')}</div>`,
+            order: index,
+          }));
+          
+          setPseudoChapters(newPseudoChapters);
+          setChapters(newPseudoChapters);
+          setIsEpub(true);
+          setIsChunkingLargeDocument(false);
+          
+          console.log('📚 ReaderScreen: Large document chunking completed');
+        } catch (error) {
+          console.error('📚 ReaderScreen: Error chunking large document:', error);
+          setIsChunkingLargeDocument(false);
+        }
+      }
+    };
+    
+    processLargeDocument();
+  }, [content.length, chapters.length, isChunkingLargeDocument]);
   
   const books = useAppStore(state => state.books);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -423,113 +466,81 @@ export default function ReaderScreen() {
 
   const styles = createStyles(theme);
 
-  // Force content rendering with useMemo to bypass React rendering issues
-  const contentView = useMemo(() => {
-    console.log('🎨 useMemo contentView triggered:', {
+  // Clean content rendering without useMemo blocking
+  const renderContent = () => {
+    console.log('📖 ReaderScreen: Rendering content:', {
       isEpub,
       chaptersLength: chapters.length,
       contentLength: content.length,
       currentChapterIndex,
       currentChapterTitle: chapters[currentChapterIndex]?.title,
+      isChunkingLargeDocument,
     });
     
-    if (content.length > 0) {
-      // Chapter-based rendering (for any format with chapters)
-      if (chapters.length > 0) {
-        const currentChapter = chapters[currentChapterIndex];
-        console.log('🎨 useMemo: Rendering chapter:', {
-          chapterIndex: currentChapterIndex,
-          chapterTitle: currentChapter?.title,
-          chapterContentLength: currentChapter?.content?.length,
-          chapterHtmlLength: currentChapter?.htmlContent?.length,
-        });
-        
-        if (currentChapter) {
-          return (
-            <ScrollView 
-              ref={scrollViewRef}
-              style={styles.contentScroll} 
-              showsVerticalScrollIndicator={false}
-            >
-              <ChapterRenderer
-                chapter={currentChapter}
-                onWordTap={handleWordTap}
-                textStyles={textStyles}
-                theme={theme}
-                isHighlighted={isWordHighlighted}
-              />
-            </ScrollView>
-          );
-        } else {
-          console.warn('🎨 useMemo: Current chapter is null/undefined');
-        }
-      }
-      
-      // Fallback: Traditional text rendering for TXT/HTML
-      console.log('🎨 useMemo: Rendering traditional text (TXT/HTML)');
-      
-      // For very large documents, automatically chunk them for performance
-      if (content.length > 100000) { // 100KB threshold
-        console.log(`🎨 useMemo: Large document detected (${content.length} chars), using automatic chunking`);
-        const chunks = ContentParser.splitIntoChunks(content, 15000); // 15KB chunks
-        console.log(`🎨 useMemo: Split into ${chunks.length} chunks for better performance`);
-        
-        // Create pseudo-chapters from chunks
-        const pseudoChapters = chunks.map((chunk, index) => ({
-          id: chunk.id,
-          title: `Section ${index + 1}`,
-          content: chunk.text,
-          htmlContent: `<div>${chunk.text.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')}</div>`,
-          order: index,
-        }));
-        
-        // Render like a chapter-based book
-        const currentChunk = pseudoChapters[currentChapterIndex] || pseudoChapters[0];
-        if (currentChunk) {
-          // Update chapters state to enable navigation
-          if (chapters.length !== pseudoChapters.length) {
-            setChapters(pseudoChapters);
-            setIsEpub(true); // Enable chapter navigation
-          }
-          
-          return (
-            <ScrollView 
-              ref={scrollViewRef}
-              style={styles.contentScroll} 
-              showsVerticalScrollIndicator={false}
-            >
-              <ChapterRenderer
-                chapter={currentChunk}
-                onWordTap={handleWordTap}
-                textStyles={textStyles}
-                theme={theme}
-                isHighlighted={isWordHighlighted}
-              />
-            </ScrollView>
-          );
-        }
-      }
-      
+    if (content.length === 0) {
+      return null;
+    }
+    
+    // Show loading state while chunking large documents
+    if (isChunkingLargeDocument) {
       return (
-        <ScrollView 
-          ref={scrollViewRef}
-          style={styles.contentScroll} 
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.simpleTextContainer}>
-            <InteractiveText
-              text={content}
-              onWordTap={handleWordTap}
-              textStyles={textStyles}
-              isHighlighted={isWordHighlighted}
-            />
-          </View>
-        </ScrollView>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#3498db" />
+          <Text style={styles.loadingText}>Processing large document...</Text>
+        </View>
       );
     }
-    console.log('🎨 useMemo: No content to render');
-    return null;
-  }, [content.length, isEpub, chapters.length, currentChapterIndex, styles, textStyles?.fontSize, theme.colors.text]); // More specific dependencies
+    
+    // Chapter-based rendering (for EPUB or chunked documents)
+    if (chapters.length > 0) {
+      const currentChapter = chapters[currentChapterIndex];
+      console.log('📖 ReaderScreen: Rendering chapter:', {
+        chapterIndex: currentChapterIndex,
+        chapterTitle: currentChapter?.title,
+        chapterContentLength: currentChapter?.content?.length,
+      });
+      
+      if (currentChapter) {
+        return (
+          <ScrollView 
+            ref={scrollViewRef}
+            style={styles.contentScroll} 
+            showsVerticalScrollIndicator={false}
+          >
+            <ChapterRenderer
+              chapter={currentChapter}
+              onWordTap={handleWordTap}
+              textStyles={textStyles}
+              theme={theme}
+              isHighlighted={isWordHighlighted}
+            />
+          </ScrollView>
+        );
+      } else {
+        console.warn('📖 ReaderScreen: Current chapter is null/undefined');
+        return null;
+      }
+    }
+    
+    // Traditional text rendering for smaller documents
+    console.log('📖 ReaderScreen: Rendering traditional text');
+    return (
+      <ScrollView 
+        ref={scrollViewRef}
+        style={styles.contentScroll} 
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.simpleTextContainer}>
+          <InteractiveText
+            text={content}
+            onWordTap={handleWordTap}
+            textStyles={textStyles}
+            isHighlighted={isWordHighlighted}
+          />
+        </View>
+      </ScrollView>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -559,7 +570,7 @@ export default function ReaderScreen() {
 
       {/* Reading content */}
       <View style={styles.content}>
-        {contentView || (error ? (
+        {error ? (
           <View style={styles.errorContainer}>
             <Text style={styles.errorTitle}>Error Loading Book</Text>
             <Text style={styles.errorText}>{error}</Text>
@@ -567,12 +578,14 @@ export default function ReaderScreen() {
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
           </View>
-        ) : (
+        ) : isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#3498db" />
             <Text style={styles.loadingText}>Loading book content...</Text>
           </View>
-        ))}
+        ) : (
+          renderContent()
+        )}
       </View>
 
       {/* Bottom controls with integrated progress */}
