@@ -87,12 +87,12 @@ polybook/
 - **Fixed infinite loops**: Optimized Zustand store selectors to prevent re-render loops
 - **Persistent file storage**: Books copied to permanent app document directory
 
-🚧 **Ready for Phase 1.6 - Next Immediate Steps:**
+🚧 **Ready for Phase 1.7 - Next Immediate Steps:**
 1. ✅ App fully functional and stable on iOS/Android/Web
 2. ✅ **COMPLETED**: Book content parsing (TXT/HTML → structured text)
 3. ✅ **COMPLETED**: Word-tap translation popup UI with definitions
-4. **Next Priority**: Create vocabulary saving system
-5. Add reading statistics and progress tracking
+4. ✅ **COMPLETED**: Vocabulary saving and management system
+5. **Next Priority**: System TTS integration (iOS/Android/Web)
 
 **Technical Architecture Now Stable:**
 - Custom navigation (no react-native-screens dependency issues)
@@ -144,7 +144,17 @@ polybook/
 - [x] **Save and translate action buttons** ready for vocabulary integration
 - [x] **Cross-platform shadows and styling** for professional UI
 
-#### 1.6 System TTS Integration
+#### 1.6 Vocabulary Saving System ✅ COMPLETED
+**Tasks:**
+- [x] **Implement vocabulary saving functionality** with context extraction
+- [x] **Create VocabularyScreen** with beautiful card layout and management
+- [x] **Add context extraction algorithm** to capture sentences around tapped words
+- [x] **Vocabulary card deletion** with confirmation dialogs
+- [x] **Success message system** with animated toast notifications
+- [x] **Navigation integration** with "My Vocabulary" button
+- [x] **Cross-platform database operations** for vocabulary management
+
+#### 1.7 System TTS Integration
 **Tasks:**
 - [ ] Integrate with iOS AVSpeechSynthesizer
 - [ ] Integrate with Android TextToSpeech
