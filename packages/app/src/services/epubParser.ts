@@ -75,6 +75,8 @@ export class EPUBParser {
       const wordCount = this.countWords(fullContent);
       const estimatedReadingTime = Math.ceil(wordCount / 200); // 200 words per minute
 
+      console.log(`📚 EPUBParser: Extracted ${chapters.length} chapters from ${spine.items.length} spine items`);
+      console.log(`📚 EPUBParser: Chapter titles:`, chapters.map(c => c.title));
       console.log(`EPUB parsed successfully: ${chapters.length} chapters, ${wordCount} words`);
 
       return {
@@ -255,12 +257,21 @@ export class EPUBParser {
     const rootFilePath = container.container.rootfiles.rootfile['full-path'];
     const baseDir = rootFilePath.includes('/') ? rootFilePath.substring(0, rootFilePath.lastIndexOf('/') + 1) : '';
     
+    let chapterCount = 0;
+    
     for (let i = 0; i < spine.items.length; i++) {
       const spineItem = spine.items[i];
       const manifestItem = manifest.items.find(item => item.id === spineItem.idref);
       
       if (!manifestItem || !manifestItem.mediaType.includes('html')) {
         continue; // Skip non-HTML items
+      }
+      
+      // Skip likely non-chapter files based on filename patterns
+      const href = manifestItem.href.toLowerCase();
+      if (this.shouldSkipFile(href)) {
+        console.log(`📚 EPUBParser: Skipping non-chapter file: ${href}`);
+        continue;
       }
       
       try {
@@ -276,7 +287,14 @@ export class EPUBParser {
         
         // Extract text content from HTML
         const textContent = this.extractTextFromHTML(chapterHtml);
-        const title = this.extractTitleFromHTML(chapterHtml) || `Chapter ${i + 1}`;
+        
+        // Skip if content is too short (likely not a real chapter)
+        if (textContent.length < 100) {
+          console.log(`📚 EPUBParser: Skipping short content file: ${href} (${textContent.length} chars)`);
+          continue;
+        }
+        
+        const title = this.extractTitleFromHTML(chapterHtml) || `Chapter ${chapterCount + 1}`;
         
         chapters.push({
           id: manifestItem.id,
@@ -284,8 +302,10 @@ export class EPUBParser {
           href: manifestItem.href,
           content: textContent,
           htmlContent: chapterHtml, // Keep original HTML
-          order: i,
+          order: chapterCount,
         });
+        
+        chapterCount++;
         
       } catch (error) {
         console.warn(`Error parsing chapter ${manifestItem.href}:`, error);
@@ -370,12 +390,75 @@ export class EPUBParser {
    * Extract title from HTML
    */
   private static extractTitleFromHTML(html: string): string | null {
-    // Try to extract from h1, h2, title tags
-    const titleMatch = html.match(/<(?:h[1-6]|title)[^>]*>([^<]+)<\/(?:h[1-6]|title)>/i);
-    if (titleMatch) {
-      return titleMatch[1].trim();
+    // Try multiple strategies to extract chapter title
+    
+    // 1. Look for h1-h3 tags (most common for chapter titles)
+    const headerMatch = html.match(/<(h[1-3])[^>]*>([^<]+)<\/\1>/i);
+    if (headerMatch) {
+      const title = headerMatch[2].trim();
+      if (title && title.length > 0 && title.length < 100) {
+        return title;
+      }
     }
+    
+    // 2. Look for title tag
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    if (titleMatch) {
+      const title = titleMatch[1].trim();
+      if (title && title.length > 0 && title.length < 100) {
+        return title;
+      }
+    }
+    
+    // 3. Look for class="chapter-title" or similar
+    const classTitleMatch = html.match(/<[^>]*class="[^"]*(?:chapter|title)[^"]*"[^>]*>([^<]+)</i);
+    if (classTitleMatch) {
+      const title = classTitleMatch[1].trim();
+      if (title && title.length > 0 && title.length < 100) {
+        return title;
+      }
+    }
+    
+    // 4. Look for first paragraph or div with text content (as fallback)
+    const textMatch = html.match(/<(?:p|div)[^>]*>([^<]{5,50})</i);
+    if (textMatch) {
+      const title = textMatch[1].trim();
+      if (title && title.length > 0 && !title.includes('\n')) {
+        return title;
+      }
+    }
+    
     return null;
+  }
+
+  /**
+   * Determine if a file should be skipped based on common EPUB patterns
+   */
+  private static shouldSkipFile(href: string): boolean {
+    const skipPatterns = [
+      'cover', 'titlepage', 'title-page', 'title_page',
+      'toc', 'table-of-contents', 'tableofcontents', 'contents',
+      'copyright', 'legal', 'colophon', 'acknowledgment', 'dedication',
+      'index', 'bibliography', 'notes', 'footnotes', 'endnotes',
+      'glossary', 'appendix', 'about', 'author', 'publisher',
+      'nav.xhtml', 'nav.html', 'navigation'
+    ];
+    
+    // Check if href contains any skip patterns
+    for (const pattern of skipPatterns) {
+      if (href.includes(pattern)) {
+        return true;
+      }
+    }
+    
+    // Skip very short filenames that are likely structural
+    const filename = href.split('/').pop() || '';
+    const nameWithoutExt = filename.replace(/\.(html|xhtml)$/, '');
+    if (nameWithoutExt.length <= 2) {
+      return true;
+    }
+    
+    return false;
   }
 
   /**
