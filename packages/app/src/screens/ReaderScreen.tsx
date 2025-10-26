@@ -13,7 +13,7 @@ import { ttsService } from '../services/ttsService';
 import { useTheme } from '../hooks/useTheme';
 import { useFont } from '../hooks/useFont';
 import { useTTSHighlight } from '../hooks/useTTSHighlight';
-import { EPUBChapter } from '../services/epubParser';
+import { Chapter } from '../services/contentParser';
 
 export default function ReaderScreen() {
   console.log('🔵 ReaderScreen: Component mounting/re-rendering');
@@ -31,7 +31,7 @@ export default function ReaderScreen() {
   const [contentLoaded, setContentLoaded] = useState(false);
   
   // Chapter navigation state
-  const [chapters, setChapters] = useState<EPUBChapter[]>([]);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
   const [isEpub, setIsEpub] = useState(false);
   const [showChapterSidebar, setShowChapterSidebar] = useState(false);
@@ -122,13 +122,13 @@ export default function ReaderScreen() {
       console.log('📖 loadBookContent: Checking for cached content');
       let bookContent = await db.getBookContent(book.id);
       
-      // For EPUB files, check if we need to re-parse due to missing chapters or old version
-      const needsReparse = bookContent && book.format === 'epub' && 
-        (!bookContent.chapters || bookContent.contentVersion === '1.0');
+      // Check if we need to re-parse due to missing chapters or old version (for any format)
+      const needsReparse = bookContent && 
+        (!bookContent.chapters || bookContent.contentVersion === '1.0' || bookContent.contentVersion === '2.0' || bookContent.contentVersion === '3.0' || bookContent.contentVersion === '4.0' || bookContent.contentVersion === '5.0' || bookContent.contentVersion === '6.0');
       
       if (!bookContent || needsReparse) {
         if (needsReparse) {
-          console.log('📖 loadBookContent: EPUB needs re-parsing for chapters support');
+          console.log('📖 loadBookContent: Content needs re-parsing for enhanced chapter support');
           await db.deleteBookContent(book.id);
         }
         console.log('📖 loadBookContent: No cached content found, parsing file for first time');
@@ -150,7 +150,7 @@ export default function ReaderScreen() {
             wordCount: parsed.wordCount,
             estimatedReadingTime: parsed.estimatedReadingTime,
             parsedAt: new Date(),
-            contentVersion: '2.0',
+            contentVersion: '7.0',
             chapters: parsed.chapters, // Include chapters if available
           };
           
@@ -178,16 +178,16 @@ export default function ReaderScreen() {
         setContent(bookContent.content);
         setContentLoaded(true);
         
-        // Handle EPUB chapters if available
+        // Handle chapters if available (from any file format)
         if (bookContent.chapters && bookContent.chapters.length > 0) {
-          console.log('📖 loadBookContent: Setting EPUB chapters', {
+          console.log('📖 loadBookContent: Setting chapters from', book.format.toUpperCase(), {
             chaptersCount: bookContent.chapters.length,
-            chapterTitles: bookContent.chapters.map(c => c.title),
+            chapterTitles: bookContent.chapters.map((c: any) => c.title),
           });
           setChapters(bookContent.chapters);
-          setIsEpub(true);
+          setIsEpub(true); // Use chapter-based navigation for any format with chapters
         } else {
-          console.log('📖 loadBookContent: No chapters found, setting as non-EPUB');
+          console.log('📖 loadBookContent: No chapters found, using single-document mode');
           setIsEpub(false);
         }
       } else {
@@ -434,10 +434,10 @@ export default function ReaderScreen() {
     });
     
     if (content.length > 0) {
-      // EPUB chapter-based rendering
-      if (isEpub && chapters.length > 0) {
+      // Chapter-based rendering (for any format with chapters)
+      if (chapters.length > 0) {
         const currentChapter = chapters[currentChapterIndex];
-        console.log('🎨 useMemo: Rendering EPUB chapter:', {
+        console.log('🎨 useMemo: Rendering chapter:', {
           chapterIndex: currentChapterIndex,
           chapterTitle: currentChapter?.title,
           chapterContentLength: currentChapter?.content?.length,
@@ -467,6 +467,49 @@ export default function ReaderScreen() {
       
       // Fallback: Traditional text rendering for TXT/HTML
       console.log('🎨 useMemo: Rendering traditional text (TXT/HTML)');
+      
+      // For very large documents, automatically chunk them for performance
+      if (content.length > 100000) { // 100KB threshold
+        console.log(`🎨 useMemo: Large document detected (${content.length} chars), using automatic chunking`);
+        const chunks = ContentParser.splitIntoChunks(content, 15000); // 15KB chunks
+        console.log(`🎨 useMemo: Split into ${chunks.length} chunks for better performance`);
+        
+        // Create pseudo-chapters from chunks
+        const pseudoChapters = chunks.map((chunk, index) => ({
+          id: chunk.id,
+          title: `Section ${index + 1}`,
+          content: chunk.text,
+          htmlContent: `<div>${chunk.text.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')}</div>`,
+          order: index,
+        }));
+        
+        // Render like a chapter-based book
+        const currentChunk = pseudoChapters[currentChapterIndex] || pseudoChapters[0];
+        if (currentChunk) {
+          // Update chapters state to enable navigation
+          if (chapters.length !== pseudoChapters.length) {
+            setChapters(pseudoChapters);
+            setIsEpub(true); // Enable chapter navigation
+          }
+          
+          return (
+            <ScrollView 
+              ref={scrollViewRef}
+              style={styles.contentScroll} 
+              showsVerticalScrollIndicator={false}
+            >
+              <ChapterRenderer
+                chapter={currentChunk}
+                onWordTap={handleWordTap}
+                textStyles={textStyles}
+                theme={theme}
+                isHighlighted={isWordHighlighted}
+              />
+            </ScrollView>
+          );
+        }
+      }
+      
       return (
         <ScrollView 
           ref={scrollViewRef}
@@ -486,7 +529,7 @@ export default function ReaderScreen() {
     }
     console.log('🎨 useMemo: No content to render');
     return null;
-  }, [content.length, isEpub, chapters.length, currentChapterIndex, styles, textStyles, theme]);
+  }, [content.length, isEpub, chapters.length, currentChapterIndex, styles, textStyles?.fontSize, theme.colors.text]); // More specific dependencies
 
   return (
     <SafeAreaView style={styles.container}>
@@ -497,7 +540,7 @@ export default function ReaderScreen() {
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.colors.headerText }]} numberOfLines={1}>{bookTitle}</Text>
         <View style={styles.headerRight}>
-          {/* Chapter list button for EPUB */}
+          {/* Chapter list button for books with chapters */}
           {isEpub && chapters.length > 0 && !isLoading && !error && (
             <TouchableOpacity 
               style={styles.chapterListButton}
@@ -537,7 +580,7 @@ export default function ReaderScreen() {
         <View style={styles.readerFooter}>
           {/* Progress indicator - moved to bottom */}
           <View style={styles.footerProgress}>
-            {isEpub && chapters.length > 0 ? (
+            {chapters.length > 0 ? (
               <>
                 <View style={styles.progressBar}>
                   <View 

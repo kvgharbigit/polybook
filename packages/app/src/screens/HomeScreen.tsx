@@ -6,6 +6,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { useAppStore } from '../store/appStore';
 import { useTheme } from '../hooks/useTheme';
+import { extractEPUBMetadata } from '../services/epubMetadataExtractor';
 
 export default function HomeScreen() {
   const { navigate } = useNavigation();
@@ -49,15 +50,62 @@ export default function HomeScreen() {
           to: newFilePath,
         });
         
-        // Extract title from filename (remove extension)
-        const title = fileName.replace(/\.[^/.]+$/, '');
+        // Extract title from filename as fallback
+        const fallbackTitle = fileName.replace(/\.[^/.]+$/, '');
         
-        // For now, use default values - will be enhanced with actual file parsing
+        // Try to extract better metadata from the file content
+        let bookMetadata = {
+          title: fallbackTitle,
+          author: 'Unknown Author',
+          language: 'en', // Default to English
+          targetLanguage: 'es', // Default target to Spanish
+        };
+        
+        // For EPUB files, try to extract proper metadata
+        if (format === 'epub') {
+          try {
+            console.log('📚 HomeScreen: Extracting EPUB metadata for better title...');
+            const epubMetadata = await extractEPUBMetadata(newFilePath);
+            if (epubMetadata) {
+              console.log('📚 HomeScreen: EPUB metadata extracted:', epubMetadata);
+              
+              // Use EPUB metadata if it looks good
+              if (epubMetadata.title && epubMetadata.title.length > 2 && epubMetadata.title.length < 200) {
+                // Clean up the title
+                const cleanTitle = epubMetadata.title
+                  .replace(/\s+/g, ' ')
+                  .trim();
+                
+                // Only use if it's not just a filename or too generic
+                if (!cleanTitle.includes('.epub') && 
+                    !cleanTitle.includes('.html') &&
+                    cleanTitle.toLowerCase() !== 'untitled' &&
+                    !cleanTitle.match(/^[a-f0-9-]+$/)) { // Not just random IDs
+                  bookMetadata.title = cleanTitle;
+                  console.log(`📚 HomeScreen: Using EPUB title: "${cleanTitle}"`);
+                } else {
+                  console.log(`📚 HomeScreen: EPUB title "${cleanTitle}" seems generic, using filename`);
+                }
+              }
+              
+              if (epubMetadata.author && epubMetadata.author !== 'Unknown Author') {
+                bookMetadata.author = epubMetadata.author;
+              }
+              
+              if (epubMetadata.language && epubMetadata.language !== 'en') {
+                bookMetadata.language = epubMetadata.language;
+              }
+            }
+          } catch (error) {
+            console.warn('📚 HomeScreen: Failed to extract EPUB metadata, using filename:', error);
+          }
+        }
+        
         const bookData = {
-          title,
-          author: 'Unknown Author', // Will be extracted from file metadata later
-          language: 'es', // Default to Spanish for MVP
-          targetLanguage: 'en', // Default to English for MVP
+          title: bookMetadata.title,
+          author: bookMetadata.author,
+          language: bookMetadata.language,
+          targetLanguage: bookMetadata.targetLanguage,
           format,
           filePath: newFilePath,
           addedAt: new Date(),
@@ -68,7 +116,7 @@ export default function HomeScreen() {
         
         Alert.alert(
           'Book Imported Successfully!', 
-          `"${title}" has been added to your library.`,
+          `"${bookMetadata.title}" has been added to your library.`,
           [
             { text: 'View Library', onPress: () => navigate('Library') },
             { text: 'Import Another', style: 'cancel' },

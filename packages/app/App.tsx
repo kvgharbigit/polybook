@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationProvider, useNavigation, Header } from './src/navigation/SimpleNavigator';
 import HomeScreen from './src/screens/HomeScreen';
 import LibraryScreen from './src/screens/LibraryScreen';
@@ -45,11 +46,13 @@ export default function App() {
   }
   
   return (
-    <SafeAreaProvider>
-      <NavigationProvider initialScreen="Home">
-        <AppContent />
-      </NavigationProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <NavigationProvider initialScreen="Home">
+          <AppContent />
+        </NavigationProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
