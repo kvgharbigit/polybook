@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, useWindowDimensions, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
 import { PanGestureHandler, State as GestureState } from 'react-native-gesture-handler';
 import RenderHtml from 'react-native-render-html';
 import InteractiveText from './InteractiveText';
 import { Chapter } from '../services/contentParser';
+import { useStableDimensions } from '../hooks/useStableDimensions';
 
 interface ChapterRendererProps {
   chapter: Chapter;
@@ -20,12 +21,13 @@ function ChapterRenderer({
   theme,
   isHighlighted, 
 }: ChapterRendererProps) {
-  const { width, height } = useWindowDimensions();
+  const { width, height } = useStableDimensions(150, 15); // 150ms debounce, 15px threshold
   const [currentPage, setCurrentPage] = useState(0);
   
   // Animation values for smooth page transitions
   const translateX = useRef(new Animated.Value(0)).current;
   const gestureState = useRef({ isActive: false, startX: 0 }).current;
+  const isAnimating = useRef(false);
   
   // Dynamic pagination based on screen space - no scrolling needed
   const pages = useMemo(() => {
@@ -134,9 +136,11 @@ function ChapterRenderer({
     }
   }, [totalPages, currentPage]);
   
-  // Update animation position when page changes
+  // Update animation position when page changes (only if not currently animating from gesture)
   React.useEffect(() => {
-    translateX.setValue(-currentPage * width);
+    if (!isAnimating.current) {
+      translateX.setValue(-currentPage * width);
+    }
   }, [currentPage, width, translateX]);
   
   const goToNextPage = () => {
@@ -182,19 +186,34 @@ function ChapterRenderer({
         }
       }
       
-      // Update page state immediately for responsive UI
-      if (newPage !== currentPage) {
-        setCurrentPage(newPage);
-      }
-      
-      // Animate to the target page position
+      // Animate to the target page position with coordinated state update
       const targetOffset = -newPage * width;
-      Animated.spring(translateX, {
-        toValue: targetOffset,
-        useNativeDriver: true,
-        tension: 100,
-        friction: 8,
-      }).start();
+      
+      if (newPage !== currentPage) {
+        // Mark as animating to prevent useEffect interference
+        isAnimating.current = true;
+        
+        Animated.spring(translateX, {
+          toValue: targetOffset,
+          useNativeDriver: true,
+          tension: 100,
+          friction: 8,
+        }).start((finished) => {
+          // Update state after animation completes for perfect sync
+          if (finished) {
+            setCurrentPage(newPage);
+            isAnimating.current = false;
+          }
+        });
+      } else {
+        // No page change, just spring back to current position
+        Animated.spring(translateX, {
+          toValue: targetOffset,
+          useNativeDriver: true,
+          tension: 100,
+          friction: 8,
+        }).start();
+      }
     }
   };
 
