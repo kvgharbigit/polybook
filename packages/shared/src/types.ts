@@ -91,6 +91,16 @@ export interface SentenceTranslation {
   model: string;
 }
 
+export interface BookContent {
+  id: string;
+  bookId: string;
+  content: string;
+  wordCount: number;
+  estimatedReadingTime: number;
+  parsedAt: Date;
+  contentVersion: string;
+}
+
 export type ReadingMode = 'normal' | 'toggle' | 'sidebyside' | 'overlay';
 
 export type Theme = 'light' | 'dark' | 'sepia';

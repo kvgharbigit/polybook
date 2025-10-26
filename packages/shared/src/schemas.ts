@@ -57,6 +57,16 @@ export const LanguagePackSchema = z.object({
   }),
 });
 
+export const BookContentSchema = z.object({
+  id: z.string().uuid(),
+  bookId: z.string().uuid(),
+  content: z.string(),
+  wordCount: z.number().int().min(0),
+  estimatedReadingTime: z.number().int().min(0),
+  parsedAt: z.date(),
+  contentVersion: z.string().default('1.0'),
+});
+
 export const UserSettingsSchema = z.object({
   theme: z.enum(['light', 'dark', 'sepia']),
   fontSize: z.number().min(8).max(32),
@@ -67,7 +77,8 @@ export const UserSettingsSchema = z.object({
 });
 
 // Export types inferred from schemas
-export type Book = z.infer<typeof BookSchema>;
-export type VocabularyCard = z.infer<typeof VocabularyCardSchema>;
-export type LanguagePack = z.infer<typeof LanguagePackSchema>;
-export type UserSettings = z.infer<typeof UserSettingsSchema>;
+export type BookSchemaType = z.infer<typeof BookSchema>;
+export type VocabularyCardSchemaType = z.infer<typeof VocabularyCardSchema>;
+export type LanguagePackSchemaType = z.infer<typeof LanguagePackSchema>;
+export type BookContentSchemaType = z.infer<typeof BookContentSchema>;
+export type UserSettingsSchemaType = z.infer<typeof UserSettingsSchema>;

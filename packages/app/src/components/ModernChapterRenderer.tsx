@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import HybridVirtualizedText from './HybridVirtualizedText';
+import ReliableTextRenderer from './ReliableTextRenderer';
 import { Chapter } from '../services/contentParser';
 import { useStableDimensions } from '../hooks/useStableDimensions';
 
@@ -99,9 +99,9 @@ export default React.memo(function ModernChapterRenderer({
         alwaysBounceVertical={false}
         contentInsetAdjustmentBehavior="never"
       >
-        <HybridVirtualizedText
+        <ReliableTextRenderer
           text={chapter.content}
-          scrollPosition={debouncedScrollPosition}
+          scrollPosition={scrollPosition}
           screenHeight={height}
           onWordTap={onWordTap}
           textStyles={textStyles}
