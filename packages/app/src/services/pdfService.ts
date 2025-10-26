@@ -2,8 +2,21 @@ import * as FileSystem from 'expo-file-system';
 import * as pdfjsLib from 'pdfjs-dist';
 import { ParsedContent, Chapter } from './contentParser';
 
-// Configure PDF.js worker for React Native
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Configure PDF.js for React Native environment
+pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+
+// Mock document object for PDF.js
+if (typeof global !== 'undefined' && !global.document) {
+  (global as any).document = {
+    createElement: () => ({}),
+    getElementsByTagName: () => [],
+  };
+}
+
+// Mock window for PDF.js
+if (typeof global !== 'undefined' && !global.window) {
+  (global as any).window = global;
+}
 
 export class PDFService {
   /**
