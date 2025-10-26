@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { fontService, FontSettings, FontPreset, FONT_PRESETS } from '../services/fontService';
 
 export interface UseFontReturn {
@@ -28,6 +28,16 @@ export function useFont(): UseFontReturn {
     return unsubscribe;
   }, []);
 
+  // Memoize text styles to prevent unnecessary re-renders
+  const textStyles = useMemo(() => {
+    return fontService.getTextStyles();
+  }, [settings.fontSize, settings.lineHeight, settings.wordSpacing]);
+
+  // Memoize paragraph styles to prevent unnecessary re-renders  
+  const paragraphStyles = useMemo(() => {
+    return fontService.getParagraphStyles();
+  }, [settings.paragraphSpacing]);
+
   return {
     settings,
     presets: FONT_PRESETS,
@@ -40,7 +50,7 @@ export function useFont(): UseFontReturn {
     setParagraphSpacing: (spacing: number) => fontService.setParagraphSpacing(spacing),
     applyPreset: (preset: FontPreset) => fontService.applyPreset(preset),
     resetToDefaults: () => fontService.resetToDefaults(),
-    textStyles: fontService.getTextStyles(),
-    paragraphStyles: fontService.getParagraphStyles(),
+    textStyles,
+    paragraphStyles,
   };
 }

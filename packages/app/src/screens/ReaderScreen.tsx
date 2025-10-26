@@ -6,7 +6,6 @@ import { useAppStore } from '../store/appStore';
 import { ContentParser } from '../services/contentParser';
 import { db } from '../services/databaseInterface';
 import TranslationPopup, { WordDefinition } from '../components/TranslationPopup';
-import ChapterRenderer from '../components/ChapterRenderer';
 import ModernChapterRenderer from '../components/ModernChapterRenderer';
 import InteractiveText from '../components/InteractiveText';
 import { WordLookupService } from '../services/wordLookup';

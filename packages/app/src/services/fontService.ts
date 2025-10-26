@@ -97,24 +97,23 @@ export class FontService {
   }
 
   /**
-   * Update font settings with debouncing for performance
+   * Update font settings with single immediate notification for better performance
    */
   updateSettings(settings: Partial<FontSettings>): void {
-    // Update settings immediately for UI responsiveness
+    // Update settings and notify immediately - eliminates double updates
     this.currentSettings = {
       ...this.currentSettings,
       ...settings,
     };
     
-    // Debounce listener notifications to prevent performance issues
+    // Clear any pending debounced updates
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
     }
     
-    this.debounceTimer = setTimeout(() => {
-      this.notifyListeners();
-      this.debounceTimer = null;
-    }, this.DEBOUNCE_DELAY);
+    // Notify listeners immediately for responsive UI
+    this.notifyListeners();
     
     // TODO: Save to user settings storage
   }
