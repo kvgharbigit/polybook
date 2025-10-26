@@ -532,58 +532,73 @@ export default function ReaderScreen() {
         ))}
       </View>
 
-      {/* Simple chapter progress indicator */}
-      {isEpub && chapters.length > 0 && !isLoading && !error && (
-        <View style={styles.chapterProgress}>
-          <View style={styles.progressBar}>
-            <View 
-              style={[
-                styles.progressFill, 
-                { width: `${((currentChapterIndex + 1) / chapters.length) * 100}%` }
-              ]} 
-            />
-          </View>
-          <Text style={styles.progressText}>
-            Chapter {currentChapterIndex + 1} of {chapters.length}
-          </Text>
-        </View>
-      )}
-
-      {/* Bottom controls */}
+      {/* Bottom controls with integrated progress */}
       {!isLoading && !error && (
-        <View style={styles.controls}>
-          {/* Font Size Decrease */}
-          <TouchableOpacity 
-            style={styles.controlButton}
-            onPress={decreaseFontSize}
-          >
-            <Text style={styles.controlText}>A-</Text>
-          </TouchableOpacity>
-
-          {/* Font Size Display */}
-          <View style={styles.fontSizeDisplay}>
-            <Text style={[styles.controlText, { fontSize: 12 }]}>
-              {Math.round(fontSettings.fontSize)}px
-            </Text>
+        <View style={styles.readerFooter}>
+          {/* Progress indicator - moved to bottom */}
+          <View style={styles.footerProgress}>
+            {isEpub && chapters.length > 0 ? (
+              <>
+                <View style={styles.progressBar}>
+                  <View 
+                    style={[
+                      styles.progressFill, 
+                      { width: `${((currentChapterIndex + 1) / chapters.length) * 100}%` }
+                    ]} 
+                  />
+                </View>
+                <Text style={styles.progressText}>
+                  Chapter {currentChapterIndex + 1} of {chapters.length}
+                </Text>
+              </>
+            ) : (
+              <>
+                <View style={styles.progressBar}>
+                  <View style={[styles.progressFill, { width: '0%' }]} />
+                </View>
+                <Text style={styles.progressText}>Reading...</Text>
+              </>
+            )}
           </View>
 
-          {/* Font Size Increase */}
-          <TouchableOpacity 
-            style={styles.controlButton}
-            onPress={increaseFontSize}
-          >
-            <Text style={styles.controlText}>A+</Text>
-          </TouchableOpacity>
+          {/* Reading controls */}
+          <View style={styles.controls}>
+            {/* Font Size Decrease */}
+            <TouchableOpacity 
+              style={styles.controlButton}
+              onPress={decreaseFontSize}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={styles.controlText}>A-</Text>
+            </TouchableOpacity>
 
-          {/* TTS Toggle */}
-          <TouchableOpacity 
-            style={[styles.controlButton, isTTSEnabled && styles.controlButtonActive]}
-            onPress={toggleTTS}
-          >
-            <Text style={styles.controlText}>
-              {isTTSEnabled ? '🔊' : '🔇'}
-            </Text>
-          </TouchableOpacity>
+            {/* Font Size Display */}
+            <View style={styles.fontSizeDisplay}>
+              <Text style={styles.fontSizeText}>
+                {Math.round(fontSettings.fontSize)}
+              </Text>
+            </View>
+
+            {/* Font Size Increase */}
+            <TouchableOpacity 
+              style={styles.controlButton}
+              onPress={increaseFontSize}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={styles.controlText}>A+</Text>
+            </TouchableOpacity>
+
+            {/* TTS Toggle */}
+            <TouchableOpacity 
+              style={[styles.controlButton, isTTSEnabled && styles.controlButtonActive]}
+              onPress={toggleTTS}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={styles.controlText}>
+                {isTTSEnabled ? '🔊' : '🔇'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 
@@ -786,22 +801,29 @@ const createStyles = (theme: any) => StyleSheet.create({
     color: theme.colors.background,
     fontWeight: 'bold',
   },
+  readerFooter: {
+    backgroundColor: theme.colors.surface + 'F8',
+    borderTopWidth: 0.5,
+    borderTopColor: theme.colors.border + '40',
+    backdropFilter: 'blur(10px)',
+    paddingTop: 12,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+  },
+  footerProgress: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   controls: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    borderTopWidth: 0.5,
-    borderTopColor: theme.colors.border + '40',
-    backgroundColor: theme.colors.surface + 'F8',
-    backdropFilter: 'blur(10px)',
-    gap: 16,
+    gap: 20,
   },
   controlButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: theme.colors.background,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
@@ -809,29 +831,38 @@ const createStyles = (theme: any) => StyleSheet.create({
     justifyContent: 'center',
     shadowColor: theme.colors.shadow,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.12,
     shadowRadius: 8,
-    elevation: 2,
+    elevation: 3,
   },
   controlButtonActive: {
     backgroundColor: theme.colors.primary,
     borderColor: theme.colors.primary,
+    shadowColor: theme.colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
   },
   fontSizeDisplay: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
     backgroundColor: theme.colors.background,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 60,
+    minWidth: 70,
     shadowColor: theme.colors.shadow,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.12,
     shadowRadius: 8,
-    elevation: 2,
+    elevation: 3,
+  },
+  fontSizeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.text,
   },
   controlText: {
     fontSize: 18,
@@ -865,36 +896,28 @@ const createStyles = (theme: any) => StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
-  chapterProgress: {
-    backgroundColor: theme.colors.surface + 'F8',
-    borderTopWidth: 0.5,
-    borderTopColor: theme.colors.border + '40',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    backdropFilter: 'blur(10px)',
-  },
   progressBar: {
-    width: '90%',
-    height: 4,
-    backgroundColor: theme.colors.border + '60',
-    borderRadius: 2,
-    marginBottom: 12,
+    width: '100%',
+    height: 2,
+    backgroundColor: theme.colors.border + '40',
+    borderRadius: 1,
+    marginBottom: 8,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
     backgroundColor: theme.colors.primary,
-    borderRadius: 2,
+    borderRadius: 1,
     shadowColor: theme.colors.primary,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
+    shadowOpacity: 0.4,
+    shadowRadius: 2,
   },
   progressText: {
-    fontSize: 12,
+    fontSize: 11,
     color: theme.colors.textSecondary,
     fontWeight: '500',
+    opacity: 0.8,
   },
   // Sidebar styles
   sidebarContainer: {
