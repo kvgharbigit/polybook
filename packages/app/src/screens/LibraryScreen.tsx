@@ -1,50 +1,53 @@
-import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity } from 'react-native';
-import { Link, router } from 'expo-router';
-
-// Mock data for now - will be replaced with SQLite data
-const mockBooks = [
-  {
-    id: '1',
-    title: 'Don Quixote',
-    author: 'Miguel de Cervantes',
-    language: 'es',
-    progress: 0.15,
-    lastRead: '2024-10-20',
-  },
-  {
-    id: '2', 
-    title: 'La Casa de Bernarda Alba',
-    author: 'Federico García Lorca',
-    language: 'es',
-    progress: 0.45,
-    lastRead: '2024-10-18',
-  }
-];
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useAppStore } from '../store/appStore';
+import { Book } from '@polybook/shared';
 
 export default function LibraryScreen() {
-  const renderBookItem = ({ item }: { item: typeof mockBooks[0] }) => (
+  const navigation = useNavigation();
+  const { books, isLoading, loadBooks } = useAppStore(state => ({
+    books: state.books,
+    isLoading: state.isLoading,
+    loadBooks: state.loadBooks
+  }));
+
+  // Reload books when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadBooks();
+    }, [loadBooks])
+  );
+
+  const renderBookItem = ({ item }: { item: Book }) => {
+    // Calculate progress from position data (mock for now)
+    const progress = item.lastPosition ? 0.25 : 0; // Will be calculated properly later
+    const lastReadDate = item.lastPosition 
+      ? item.lastPosition.updatedAt.toLocaleDateString()
+      : item.addedAt.toLocaleDateString();
+
+    return (
     <TouchableOpacity 
       style={styles.bookItem}
-      onPress={() => router.push(`/reader/${item.id}`)}
+      onPress={() => navigation.navigate('Reader' as never, { id: item.id } as never)}
     >
       <View style={styles.bookInfo}>
         <Text style={styles.bookTitle}>{item.title}</Text>
         <Text style={styles.bookAuthor}>{item.author}</Text>
         <Text style={styles.bookLanguage}>
-          Language: {item.language.toUpperCase()}
+          {item.language.toUpperCase()} → {item.targetLanguage.toUpperCase()}
         </Text>
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
             <View 
-              style={[styles.progressFill, { width: `${item.progress * 100}%` }]} 
+              style={[styles.progressFill, { width: `${progress * 100}%` }]} 
             />
           </View>
           <Text style={styles.progressText}>
-            {Math.round(item.progress * 100)}%
+            {Math.round(progress * 100)}%
           </Text>
         </View>
-        <Text style={styles.lastRead}>Last read: {item.lastRead}</Text>
+        <Text style={styles.lastRead}>Last read: {lastReadDate}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -52,21 +55,25 @@ export default function LibraryScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        {mockBooks.length === 0 ? (
+        {books.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No books yet</Text>
             <Text style={styles.emptySubtitle}>
               Import your first book to get started
             </Text>
-            <Link href="/" asChild>
-              <TouchableOpacity style={styles.importButton}>
-                <Text style={styles.importButtonText}>Import Book</Text>
-              </TouchableOpacity>
-            </Link>
+            <TouchableOpacity 
+              style={styles.importButton}
+              onPress={() => navigation.navigate('Home' as never)}
+            >
+              <Text style={styles.importButtonText}>Import Book</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <FlatList
-            data={mockBooks}
+            data={books}
+            refreshControl={
+              <RefreshControl refreshing={isLoading} onRefresh={loadBooks} />
+            }
             renderItem={renderBookItem}
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}

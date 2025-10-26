@@ -1,9 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 export default function ReaderScreen() {
-  const { id } = useLocalSearchParams();
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { id } = (route.params as any) || { id: '1' };
 
   // Mock book content - will be replaced with actual book parsing
   const mockContent = `
@@ -23,7 +25,7 @@ export default function ReaderScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header with controls */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backButton}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Don Quixote</Text>

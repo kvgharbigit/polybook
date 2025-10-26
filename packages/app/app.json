@@ -30,7 +30,6 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router",
       "expo-sqlite",
       "expo-document-picker",
       "expo-file-system"
