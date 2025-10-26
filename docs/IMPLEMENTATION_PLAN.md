@@ -216,7 +216,7 @@ polybook/
 **Reading Experience Performance:**
 - **Eliminated scroll jumping**: Window-based virtualization prevents layout shifts during momentum scrolling
 - **Zero chapter loading lag**: Progressive loading renders content in 5KB chunks at 60fps
-- **Instant font size changes**: Optimized style updates without component re-rendering
+- **Instant font size changes**: Hybrid optimization with smart word tapping disable during adjustments
 - **Smooth 60fps scrolling**: Throttled updates and momentum-aware virtualization
 - **Memory efficient**: Renders 2000-word windows instead of full 4000+ word chapters
 
@@ -226,13 +226,23 @@ polybook/
 - **Throttled scroll updates**: 15fps text rendering with immediate UI responsiveness
 - **React.memo optimization**: Intelligent re-render prevention during scroll momentum
 - **requestAnimationFrame**: Smooth progress bar updates separate from text rendering
+- **Hybrid font optimization**: Instant visual updates with temporary touch recalibration disable
+
+**Font Size Change Optimization Architecture:**
+- **Instant visual updates**: Font changes applied immediately without lag
+- **Smart word tapping disable**: Prevents expensive TouchableOpacity recalibration during changes
+- **Virtualization suspension**: Disables complex text processing during font adjustments
+- **Debounced re-enable**: Word tapping restored after 500ms when user stops adjusting
+- **Targeted notifications**: Separate listener system prevents unnecessary component re-renders
+- **Minimal rendering**: Only first 100 text segments rendered during font changes
 
 **Performance Metrics Achieved:**
 - Chapter loading: 3-5 seconds → **instant** (progressive)
 - Scroll jump frequency: frequent → **zero**
-- Font change lag: 2-3 seconds → **instant**
+- Font change lag: 2-3 seconds → **instant** (hybrid optimization)
 - Memory usage: 4000+ components → **~2000 components** (windowed)
 - Re-render frequency: 60fps → **15fps** (throttled)
+- Touch recalibration: 4000+ components → **disabled during changes** (smart disable)
 
 ---
 
