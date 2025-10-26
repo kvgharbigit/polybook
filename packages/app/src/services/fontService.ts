@@ -62,6 +62,8 @@ export class FontService {
   private static instance: FontService;
   private currentSettings: FontSettings = DEFAULT_SETTINGS;
   private listeners: Array<(settings: FontSettings) => void> = [];
+  private debounceTimer: NodeJS.Timeout | null = null;
+  private readonly DEBOUNCE_DELAY = 300; // 300ms delay
 
   static getInstance(): FontService {
     if (!FontService.instance) {
@@ -95,15 +97,44 @@ export class FontService {
   }
 
   /**
-   * Update font settings
+   * Update font settings with debouncing for performance
    */
   updateSettings(settings: Partial<FontSettings>): void {
+    // Update settings immediately for UI responsiveness
     this.currentSettings = {
       ...this.currentSettings,
       ...settings,
     };
-    this.notifyListeners();
+    
+    // Debounce listener notifications to prevent performance issues
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+    }
+    
+    this.debounceTimer = setTimeout(() => {
+      this.notifyListeners();
+      this.debounceTimer = null;
+    }, this.DEBOUNCE_DELAY);
+    
     // TODO: Save to user settings storage
+  }
+
+  /**
+   * Update settings immediately without debouncing (for presets, etc.)
+   */
+  updateSettingsImmediate(settings: Partial<FontSettings>): void {
+    this.currentSettings = {
+      ...this.currentSettings,
+      ...settings,
+    };
+    
+    // Clear any pending debounced notification
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
+    
+    this.notifyListeners();
   }
 
   /**
@@ -163,17 +194,17 @@ export class FontService {
   }
 
   /**
-   * Apply a preset
+   * Apply a preset (immediate, no debouncing)
    */
   applyPreset(preset: FontPreset): void {
-    this.updateSettings(preset.settings);
+    this.updateSettingsImmediate(preset.settings);
   }
 
   /**
-   * Reset to default settings
+   * Reset to default settings (immediate, no debouncing)
    */
   resetToDefaults(): void {
-    this.updateSettings(DEFAULT_SETTINGS);
+    this.updateSettingsImmediate(DEFAULT_SETTINGS);
   }
 
   /**
@@ -191,6 +222,17 @@ export class FontService {
         this.listeners.splice(index, 1);
       }
     };
+  }
+
+  /**
+   * Clean up timers (for testing or cleanup)
+   */
+  destroy(): void {
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
+    this.listeners = [];
   }
 
   /**
