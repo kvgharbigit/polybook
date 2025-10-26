@@ -61,7 +61,14 @@ export class EPUBParser {
       const metadata = await this.parseMetadataFromZip(zipData);
       const manifest = await this.parseManifestFromZip(zipData);
       const spine = await this.parseSpineFromZip(zipData);
-      const chapters = await this.parseChaptersFromZip(zipData, manifest, spine);
+      // Parse chapters using navigation structure (NCX or nav.xhtml)
+      let chapters = await this.parseChaptersFromNavigation(zipData, manifest);
+      
+      // If navigation parsing fails, fall back to spine-based parsing
+      if (chapters.length === 0) {
+        console.log('📚 EPUBParser: No navigation found, falling back to spine parsing');
+        chapters = await this.parseChaptersFromZip(zipData, manifest, spine);
+      }
 
       // Sort chapters by order
       const sortedChapters = chapters.sort((a, b) => a.order - b.order);
@@ -233,6 +240,192 @@ export class EPUBParser {
     } catch (error) {
       console.error('Error parsing EPUB spine:', error);
       return { items: [] };
+    }
+  }
+
+  /**
+   * Parse chapters using EPUB navigation structure (NCX or nav.xhtml)
+   */
+  private static async parseChaptersFromNavigation(
+    zipData: JSZip,
+    manifest: EPUBManifest,
+  ): Promise<EPUBChapter[]> {
+    console.log('📚 EPUBParser: Attempting to parse chapters from navigation');
+    
+    try {
+      // First try to find nav.xhtml (EPUB 3)
+      const navItem = manifest.items.find(item => 
+        item.mediaType === 'application/xhtml+xml' && 
+        item.properties && item.properties.includes('nav')
+      );
+      
+      if (navItem) {
+        console.log('📚 EPUBParser: Found EPUB 3 nav.xhtml navigation');
+        return await this.parseNavXhtml(zipData, manifest, navItem);
+      }
+      
+      // Fall back to NCX (EPUB 2)
+      const ncxItem = manifest.items.find(item => 
+        item.mediaType === 'application/x-dtbncx+xml'
+      );
+      
+      if (ncxItem) {
+        console.log('📚 EPUBParser: Found EPUB 2 NCX navigation');
+        return await this.parseNCX(zipData, manifest, ncxItem);
+      }
+      
+      console.log('📚 EPUBParser: No navigation document found');
+      return [];
+      
+    } catch (error) {
+      console.warn('📚 EPUBParser: Error parsing navigation:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Parse EPUB 3 nav.xhtml navigation
+   */
+  private static async parseNavXhtml(
+    zipData: JSZip,
+    manifest: EPUBManifest,
+    navItem: any,
+  ): Promise<EPUBChapter[]> {
+    const baseDir = await this.getBaseDir(zipData);
+    const navFilePath = `${baseDir}${navItem.href}`;
+    const navFile = zipData.file(navFilePath);
+    
+    if (!navFile) {
+      throw new Error(`Navigation file not found: ${navFilePath}`);
+    }
+    
+    const navHtml = await navFile.async('string');
+    const chapters: EPUBChapter[] = [];
+    
+    // Parse the nav HTML to extract chapter links
+    const tocMatches = navHtml.match(/<nav[^>]*epub:type="toc"[^>]*>([\s\S]*?)<\/nav>/i);
+    if (!tocMatches) {
+      throw new Error('No TOC nav found in navigation document');
+    }
+    
+    const tocContent = tocMatches[1];
+    const linkMatches = tocContent.match(/<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/gi);
+    
+    if (linkMatches) {
+      for (let i = 0; i < linkMatches.length; i++) {
+        const linkMatch = linkMatches[i].match(/<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/i);
+        if (linkMatch) {
+          const href = linkMatch[1].split('#')[0]; // Remove fragment
+          const title = linkMatch[2].trim();
+          
+          const chapter = await this.loadChapterContent(zipData, manifest, href, title, i);
+          if (chapter) {
+            chapters.push(chapter);
+          }
+        }
+      }
+    }
+    
+    return chapters;
+  }
+
+  /**
+   * Parse EPUB 2 NCX navigation
+   */
+  private static async parseNCX(
+    zipData: JSZip,
+    manifest: EPUBManifest,
+    ncxItem: any,
+  ): Promise<EPUBChapter[]> {
+    const baseDir = await this.getBaseDir(zipData);
+    const ncxFilePath = `${baseDir}${ncxItem.href}`;
+    const ncxFile = zipData.file(ncxFilePath);
+    
+    if (!ncxFile) {
+      throw new Error(`NCX file not found: ${ncxFilePath}`);
+    }
+    
+    const ncxXml = await ncxFile.async('string');
+    const ncx = this.parseXML(ncxXml);
+    const chapters: EPUBChapter[] = [];
+    
+    // Extract navPoints from NCX
+    const navMap = ncx.ncx.navMap;
+    const navPoints = Array.isArray(navMap.navPoint) ? navMap.navPoint : [navMap.navPoint];
+    
+    for (let i = 0; i < navPoints.length; i++) {
+      const navPoint = navPoints[i];
+      if (navPoint && navPoint.content && navPoint.navLabel) {
+        const href = navPoint.content.src.split('#')[0]; // Remove fragment
+        const title = this.extractTextContent(navPoint.navLabel.text) || `Chapter ${i + 1}`;
+        
+        const chapter = await this.loadChapterContent(zipData, manifest, href, title, i);
+        if (chapter) {
+          chapters.push(chapter);
+        }
+      }
+    }
+    
+    return chapters;
+  }
+
+  /**
+   * Load chapter content from file
+   */
+  private static async loadChapterContent(
+    zipData: JSZip,
+    manifest: EPUBManifest,
+    href: string,
+    title: string,
+    order: number,
+  ): Promise<EPUBChapter | null> {
+    try {
+      const baseDir = await this.getBaseDir(zipData);
+      const chapterFilePath = `${baseDir}${href}`;
+      const chapterFile = zipData.file(chapterFilePath);
+      
+      if (!chapterFile) {
+        console.warn(`📚 EPUBParser: Chapter file not found: ${chapterFilePath}`);
+        return null;
+      }
+      
+      const chapterHtml = await chapterFile.async('string');
+      const textContent = this.extractTextFromHTML(chapterHtml);
+      
+      // Find the manifest item for this chapter
+      const manifestItem = manifest.items.find(item => item.href === href);
+      const id = manifestItem?.id || `chapter-${order}`;
+      
+      return {
+        id,
+        title,
+        href,
+        content: textContent,
+        htmlContent: chapterHtml,
+        order,
+      };
+      
+    } catch (error) {
+      console.warn(`📚 EPUBParser: Error loading chapter ${href}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get base directory for content files
+   */
+  private static async getBaseDir(zipData: JSZip): Promise<string> {
+    try {
+      const containerFile = zipData.file('META-INF/container.xml');
+      if (!containerFile) return '';
+      
+      const containerXml = await containerFile.async('string');
+      const container = this.parseXML(containerXml);
+      const rootFilePath = container.container.rootfiles.rootfile['full-path'];
+      
+      return rootFilePath.includes('/') ? rootFilePath.substring(0, rootFilePath.lastIndexOf('/') + 1) : '';
+    } catch {
+      return '';
     }
   }
 
