@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '../navigation/SimpleNavigator';
 
 export default function ReaderScreen() {
-  const navigation = useNavigation();
-  const route = useRoute();
-  const { id } = (route.params as any) || { id: '1' };
+  const { navigationState, goBack } = useNavigation();
+  const { id } = navigationState.params || { id: '1' };
 
   // Mock book content - will be replaced with actual book parsing
   const mockContent = `
@@ -25,7 +25,7 @@ export default function ReaderScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header with controls */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => goBack()}>
           <Text style={styles.backButton}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Don Quixote</Text>

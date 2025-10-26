@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '../navigation/SimpleNavigator';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { useAppStore } from '../store/appStore';
 
 export default function HomeScreen() {
-  const navigation = useNavigation();
+  const { navigate } = useNavigation();
   const [importing, setImporting] = useState(false);
-  const addBook = useAppStore(state => state.addBook);
 
   const handleImportBook = async () => {
     if (importing) return;
@@ -33,6 +34,19 @@ export default function HomeScreen() {
         else if (fileExtension === 'pdf') format = 'pdf';
         else if (fileExtension === 'html' || fileExtension === 'htm') format = 'html';
         
+        // Copy file to app's document directory
+        const documentsDir = FileSystem.documentDirectory;
+        const newFilePath = `${documentsDir}books/${fileName}`;
+        
+        // Ensure books directory exists
+        await FileSystem.makeDirectoryAsync(`${documentsDir}books/`, { intermediates: true });
+        
+        // Copy the file to permanent location
+        await FileSystem.copyAsync({
+          from: file.uri,
+          to: newFilePath,
+        });
+        
         // Extract title from filename (remove extension)
         const title = fileName.replace(/\.[^/.]+$/, "");
         
@@ -43,18 +57,18 @@ export default function HomeScreen() {
           language: 'es', // Default to Spanish for MVP
           targetLanguage: 'en', // Default to English for MVP
           format,
-          filePath: file.uri,
+          filePath: newFilePath,
           addedAt: new Date(),
           lastOpenedAt: new Date(),
         };
 
-        const bookId = await addBook(bookData);
+        const bookId = await useAppStore.getState().addBook(bookData);
         
         Alert.alert(
           'Book Imported Successfully!', 
           `"${title}" has been added to your library.`,
           [
-            { text: 'View Library', onPress: () => navigation.navigate('Library' as never) },
+            { text: 'View Library', onPress: () => navigate('Library') },
             { text: 'Import Another', style: 'cancel' }
           ]
         );
@@ -93,7 +107,7 @@ export default function HomeScreen() {
 
           <TouchableOpacity 
             style={styles.secondaryButton}
-            onPress={() => navigation.navigate('Library' as never)}
+            onPress={() => navigate('Library')}
           >
             <Text style={styles.secondaryButtonText}>My Library</Text>
           </TouchableOpacity>

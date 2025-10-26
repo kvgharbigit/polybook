@@ -1,20 +1,40 @@
-import * as SQLite from 'expo-sqlite';
+import { Platform } from 'react-native';
 import { Book, VocabularyCard, Position, TranslationCache } from '@polybook/shared';
+
+// Conditional import for SQLite (only on native platforms)
+let SQLite: any = null;
+if (Platform.OS !== 'web') {
+  try {
+    SQLite = require('expo-sqlite');
+  } catch (error) {
+    console.warn('SQLite not available, using web fallback');
+  }
+}
 
 const DATABASE_NAME = 'polybook.db';
 const DATABASE_VERSION = 1;
 
 class DatabaseService {
-  private db: SQLite.SQLiteDatabase | null = null;
+  private db: any = null;
 
   async initialize(): Promise<void> {
     try {
+      console.log('Initializing database...');
+      
+      // Check if we're on web or SQLite is unavailable
+      if (Platform.OS === 'web' || !SQLite) {
+        console.warn('Running on web or SQLite unavailable - using localStorage fallback');
+        return;
+      }
+      
       this.db = await SQLite.openDatabaseAsync(DATABASE_NAME);
+      console.log('Database opened successfully');
       
       await this.createTables();
       console.log('Database initialized successfully');
     } catch (error) {
       console.error('Database initialization failed:', error);
+      console.error('Error details:', error);
       throw error;
     }
   }

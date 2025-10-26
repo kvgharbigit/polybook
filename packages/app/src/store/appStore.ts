@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Book, VocabularyCard, Position, UserSettings, ReadingMode } from '@polybook/shared';
-import { db } from '../services/database';
+import { db } from '../services/databaseInterface';
 
 interface AppState {
   // Library state

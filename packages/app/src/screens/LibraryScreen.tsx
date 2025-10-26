@@ -1,23 +1,19 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '../navigation/SimpleNavigator';
 import { useAppStore } from '../store/appStore';
-import { Book } from '@polybook/shared';
+import type { Book } from '@polybook/shared';
 
 export default function LibraryScreen() {
-  const navigation = useNavigation();
-  const { books, isLoading, loadBooks } = useAppStore(state => ({
-    books: state.books,
-    isLoading: state.isLoading,
-    loadBooks: state.loadBooks
-  }));
+  const { navigate } = useNavigation();
+  const books = useAppStore(state => state.books);
+  const isLoading = useAppStore(state => state.isLoading);
 
-  // Reload books when screen comes into focus
-  useFocusEffect(
-    React.useCallback(() => {
-      loadBooks();
-    }, [loadBooks])
-  );
+  // Load books when component mounts
+  useEffect(() => {
+    useAppStore.getState().loadBooks();
+  }, []);
 
   const renderBookItem = ({ item }: { item: Book }) => {
     // Calculate progress from position data (mock for now)
@@ -27,30 +23,31 @@ export default function LibraryScreen() {
       : item.addedAt.toLocaleDateString();
 
     return (
-    <TouchableOpacity 
-      style={styles.bookItem}
-      onPress={() => navigation.navigate('Reader' as never, { id: item.id } as never)}
-    >
-      <View style={styles.bookInfo}>
-        <Text style={styles.bookTitle}>{item.title}</Text>
-        <Text style={styles.bookAuthor}>{item.author}</Text>
-        <Text style={styles.bookLanguage}>
-          {item.language.toUpperCase()} → {item.targetLanguage.toUpperCase()}
-        </Text>
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
-            <View 
-              style={[styles.progressFill, { width: `${progress * 100}%` }]} 
-            />
-          </View>
-          <Text style={styles.progressText}>
-            {Math.round(progress * 100)}%
+      <TouchableOpacity 
+        style={styles.bookItem}
+        onPress={() => navigate('Reader', { id: item.id })}
+      >
+        <View style={styles.bookInfo}>
+          <Text style={styles.bookTitle}>{item.title}</Text>
+          <Text style={styles.bookAuthor}>{item.author}</Text>
+          <Text style={styles.bookLanguage}>
+            {item.language.toUpperCase()} → {item.targetLanguage.toUpperCase()}
           </Text>
+          <View style={styles.progressContainer}>
+            <View style={styles.progressBar}>
+              <View 
+                style={[styles.progressFill, { width: `${progress * 100}%` }]} 
+              />
+            </View>
+            <Text style={styles.progressText}>
+              {Math.round(progress * 100)}%
+            </Text>
+          </View>
+          <Text style={styles.lastRead}>Last read: {lastReadDate}</Text>
         </View>
-        <Text style={styles.lastRead}>Last read: {lastReadDate}</Text>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -63,7 +60,7 @@ export default function LibraryScreen() {
             </Text>
             <TouchableOpacity 
               style={styles.importButton}
-              onPress={() => navigation.navigate('Home' as never)}
+              onPress={() => navigate('Home')}
             >
               <Text style={styles.importButtonText}>Import Book</Text>
             </TouchableOpacity>
@@ -72,7 +69,7 @@ export default function LibraryScreen() {
           <FlatList
             data={books}
             refreshControl={
-              <RefreshControl refreshing={isLoading} onRefresh={loadBooks} />
+              <RefreshControl refreshing={isLoading} onRefresh={() => useAppStore.getState().loadBooks()} />
             }
             renderItem={renderBookItem}
             keyExtractor={(item) => item.id}

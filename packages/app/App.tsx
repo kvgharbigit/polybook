@@ -1,76 +1,92 @@
 import React, { useEffect, useState } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { NavigationProvider, useNavigation, Header } from './src/navigation/SimpleNavigator';
 import HomeScreen from './src/screens/HomeScreen';
 import LibraryScreen from './src/screens/LibraryScreen';
 import ReaderScreen from './src/screens/ReaderScreen';
 import { useAppStore } from './src/store/appStore';
 
-const Stack = createNativeStackNavigator();
-
 function LoadingScreen() {
   return (
     <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color="#3498db" />
+      <ActivityIndicator size={40} color="#3498db" />
       <Text style={styles.loadingText}>Initializing PolyBook...</Text>
     </View>
   );
 }
 
 export default function App() {
-  const [isInitialized, setIsInitialized] = useState(false);
-  const initialize = useAppStore(state => state.initialize);
+  const [isInitialized, setIsInitialized] = useState<boolean>(false);
 
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        await initialize();
+        console.log('Starting app initialization...');
+        await useAppStore.getState().initialize();
+        console.log('App initialization completed');
         setIsInitialized(true);
       } catch (error) {
         console.error('App initialization failed:', error);
-        // For now, continue anyway
+        console.error('Error details:', error);
+        // For now, continue anyway to see the app
+        console.log('Continuing despite initialization error...');
         setIsInitialized(true);
       }
     };
 
     initializeApp();
-  }, [initialize]);
+  }, []);
 
   if (!isInitialized) {
     return <LoadingScreen />;
   }
+  
   return (
-    <NavigationContainer>
-      <Stack.Navigator
-        initialRouteName="Home"
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: '#f8f9fa',
-          },
-          headerTintColor: '#2c3e50',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
-        }}>
-        <Stack.Screen 
-          name="Home" 
-          component={HomeScreen}
-          options={{ title: 'PolyBook' }}
-        />
-        <Stack.Screen 
-          name="Library" 
-          component={LibraryScreen}
-          options={{ title: 'My Library' }}
-        />
-        <Stack.Screen 
-          name="Reader" 
-          component={ReaderScreen}
-          options={{ title: 'Reading', headerShown: false }}
-        />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <SafeAreaProvider>
+      <NavigationProvider initialScreen="Home">
+        <AppContent />
+      </NavigationProvider>
+    </SafeAreaProvider>
   );
+}
+
+function AppContent() {
+  const { navigationState } = useNavigation();
+  
+  const renderScreen = () => {
+    switch (navigationState.currentScreen) {
+      case 'Home':
+        return (
+          <View style={styles.screenContainer}>
+            <Header title="PolyBook" />
+            <HomeScreen />
+          </View>
+        );
+      case 'Library':
+        return (
+          <View style={styles.screenContainer}>
+            <Header title="My Library" showBackButton />
+            <LibraryScreen />
+          </View>
+        );
+      case 'Reader':
+        return (
+          <View style={styles.screenContainer}>
+            <ReaderScreen />
+          </View>
+        );
+      default:
+        return (
+          <View style={styles.screenContainer}>
+            <Header title="PolyBook" />
+            <HomeScreen />
+          </View>
+        );
+    }
+  };
+
+  return renderScreen();
 }
 
 const styles = StyleSheet.create({
@@ -84,5 +100,9 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     color: '#2c3e50',
+  },
+  screenContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
   },
 });
