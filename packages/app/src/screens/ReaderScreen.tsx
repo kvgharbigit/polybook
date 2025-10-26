@@ -7,6 +7,7 @@ import { ContentParser } from '../services/contentParser';
 import { db } from '../services/databaseInterface';
 import TranslationPopup, { WordDefinition } from '../components/TranslationPopup';
 import ChapterRenderer from '../components/ChapterRenderer';
+import ModernChapterRenderer from '../components/ModernChapterRenderer';
 import InteractiveText from '../components/InteractiveText';
 import { WordLookupService } from '../services/wordLookup';
 import { ttsService } from '../services/ttsService';
@@ -502,19 +503,13 @@ export default function ReaderScreen() {
       
       if (currentChapter) {
         return (
-          <ScrollView 
-            ref={scrollViewRef}
-            style={styles.contentScroll} 
-            showsVerticalScrollIndicator={false}
-          >
-            <ChapterRenderer
-              chapter={currentChapter}
-              onWordTap={handleWordTap}
-              textStyles={textStyles}
-              theme={theme}
-              isHighlighted={isWordHighlighted}
-            />
-          </ScrollView>
+          <ModernChapterRenderer
+            chapter={currentChapter}
+            onWordTap={handleWordTap}
+            textStyles={textStyles}
+            theme={theme}
+            isHighlighted={isWordHighlighted}
+          />
         );
       } else {
         console.warn('📖 ReaderScreen: Current chapter is null/undefined');
