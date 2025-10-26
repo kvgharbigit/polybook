@@ -281,13 +281,6 @@ export default React.memo(function StreamingChapterRenderer({
       </View>
     </View>
   );
-}, (prevProps, nextProps) => {
-  return (
-    prevProps.chapter.id === nextProps.chapter.id &&
-    prevProps.chapter.content === nextProps.chapter.content &&
-    prevProps.textStyles?.fontSize === nextProps.textStyles?.fontSize &&
-    prevProps.theme.colors.text === nextProps.theme.colors.text
-  );
 });
 
 const styles = StyleSheet.create({

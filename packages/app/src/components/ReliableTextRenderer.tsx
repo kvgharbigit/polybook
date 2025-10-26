@@ -173,10 +173,11 @@ export default React.memo(function ReliableTextRenderer({
   const textChanged = prevProps.text !== nextProps.text;
   const styleChanged = prevProps.textStyles?.fontSize !== nextProps.textStyles?.fontSize;
   const highlightChanged = prevProps.isHighlighted !== nextProps.isHighlighted;
+  const wordTappingChanged = prevProps.isWordTappingEnabled !== nextProps.isWordTappingEnabled;
   
-  // For font size changes, always update immediately
-  if (styleChanged) {
-    return false; // Always re-render for style changes
+  // For font size changes or word tapping state changes, always update immediately
+  if (styleChanged || wordTappingChanged) {
+    return false; // Always re-render for style or word tapping changes
   }
   
   // COMPLETELY disable virtualization updates during any scroll movement
@@ -184,7 +185,7 @@ export default React.memo(function ReliableTextRenderer({
   const majorScrollChange = scrollDiff > 2000; // Very large threshold - almost never during normal scroll
   const shouldUpdate = majorScrollChange || textChanged || highlightChanged;
   
-  console.log(`🔒 MEMO CHECK: scrollDiff=${scrollDiff}, shouldUpdate=${shouldUpdate}`);
+  console.log(`🔒 MEMO CHECK: scrollDiff=${scrollDiff}, shouldUpdate=${shouldUpdate}, wordTappingChanged=${wordTappingChanged}`);
   
   return !shouldUpdate;
 });
