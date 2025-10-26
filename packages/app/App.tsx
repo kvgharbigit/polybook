@@ -5,6 +5,7 @@ import { NavigationProvider, useNavigation, Header } from './src/navigation/Simp
 import HomeScreen from './src/screens/HomeScreen';
 import LibraryScreen from './src/screens/LibraryScreen';
 import ReaderScreen from './src/screens/ReaderScreen';
+import VocabularyScreen from './src/screens/VocabularyScreen';
 import { useAppStore } from './src/store/appStore';
 
 function LoadingScreen() {
@@ -74,6 +75,12 @@ function AppContent() {
         return (
           <View style={styles.screenContainer}>
             <ReaderScreen />
+          </View>
+        );
+      case 'Vocabulary':
+        return (
+          <View style={styles.screenContainer}>
+            <VocabularyScreen />
           </View>
         );
       default:

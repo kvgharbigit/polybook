@@ -25,6 +25,10 @@ export default function ReaderScreen() {
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
   
+  // Success message state
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string>('');
+  
   const books = useAppStore(state => state.books);
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -115,14 +119,88 @@ export default function ReaderScreen() {
     setLookupError(null);
   };
 
+  const extractContext = (word: string, fullText: string): string => {
+    // Find the word in the text and extract surrounding context
+    const wordIndex = fullText.toLowerCase().indexOf(word.toLowerCase());
+    if (wordIndex === -1) return word;
+
+    // Find sentence boundaries around the word
+    const beforeText = fullText.substring(0, wordIndex);
+    const afterText = fullText.substring(wordIndex + word.length);
+
+    // Look for sentence endings before the word
+    const sentenceStart = Math.max(
+      beforeText.lastIndexOf('.'),
+      beforeText.lastIndexOf('!'),
+      beforeText.lastIndexOf('?'),
+      beforeText.lastIndexOf('\n')
+    );
+
+    // Look for sentence endings after the word
+    const sentenceEndPos = Math.min(
+      afterText.indexOf('.') !== -1 ? afterText.indexOf('.') + wordIndex + word.length : Infinity,
+      afterText.indexOf('!') !== -1 ? afterText.indexOf('!') + wordIndex + word.length : Infinity,
+      afterText.indexOf('?') !== -1 ? afterText.indexOf('?') + wordIndex + word.length : Infinity,
+      afterText.indexOf('\n') !== -1 ? afterText.indexOf('\n') + wordIndex + word.length : Infinity
+    );
+
+    const start = sentenceStart >= 0 ? sentenceStart + 1 : 0;
+    const end = sentenceEndPos < Infinity ? sentenceEndPos + 1 : fullText.length;
+
+    return fullText.substring(start, end).trim();
+  };
+
   const handleSaveWord = async (word: string) => {
     try {
-      // TODO: Save word to vocabulary database
-      console.log('Saving word to vocabulary:', word);
-      // For now, just show a success message
+      const book = books.find(b => b.id === id);
+      if (!book) {
+        console.error('Book not found for vocabulary saving');
+        return;
+      }
+
+      // Extract context from the current content
+      const context = extractContext(word, content);
+      
+      // Get the current definition if available
+      const definition = wordDefinition;
+      
+      // Create vocabulary card
+      const vocabularyCard = {
+        bookId: book.id,
+        headword: word.toLowerCase(),
+        lemma: word.toLowerCase(), // For now, same as headword
+        sourceLanguage: book.language,
+        targetLanguage: book.targetLanguage,
+        sourceContext: context,
+        translation: definition?.definitions[0]?.meaning || `Definition for "${word}"`,
+        definition: definition?.definitions.map(d => d.meaning).join('; '),
+        examples: definition?.definitions.map(d => d.example).filter(Boolean),
+        frequency: definition?.frequency,
+        srsState: 'new' as const,
+        createdAt: new Date(),
+      };
+
+      console.log('Saving vocabulary card:', vocabularyCard);
+      
+      // Save to database
+      const cardId = await db.addVocabularyCard(vocabularyCard);
+      console.log('Vocabulary card saved with ID:', cardId);
+      
+      // Close popup and show success
       handleClosePopup();
+      
+      // Show success message
+      setSuccessMessage(`"${word}" saved to vocabulary!`);
+      setShowSuccessMessage(true);
+      
+      // Hide success message after 3 seconds
+      setTimeout(() => {
+        setShowSuccessMessage(false);
+      }, 3000);
+      
     } catch (error) {
-      console.error('Error saving word:', error);
+      console.error('Error saving word to vocabulary:', error);
+      // TODO: Show error toast
     }
   };
 
@@ -249,6 +327,12 @@ export default function ReaderScreen() {
         onSaveWord={handleSaveWord}
         onTranslate={handleTranslateWord}
       />
+
+      {showSuccessMessage && (
+        <View style={styles.successMessage}>
+          <Text style={styles.successText}>{successMessage}</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -360,5 +444,26 @@ const styles = StyleSheet.create({
   },
   controlText: {
     fontSize: 20,
+  },
+  successMessage: {
+    position: 'absolute',
+    bottom: 100,
+    left: 20,
+    right: 20,
+    backgroundColor: '#27ae60',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  successText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });

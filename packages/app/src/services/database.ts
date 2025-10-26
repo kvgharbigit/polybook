@@ -317,6 +317,15 @@ class DatabaseService {
     }));
   }
 
+  async deleteVocabularyCard(id: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    await this.db.runAsync(
+      'DELETE FROM vocabulary_cards WHERE id = ?',
+      [id]
+    );
+  }
+
   // Translation cache operations
   async cacheTranslation(cache: Omit<TranslationCache, 'id'>): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');

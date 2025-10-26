@@ -185,6 +185,14 @@ class WebDatabaseService {
     })).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
+  async deleteVocabularyCard(id: string): Promise<void> {
+    if (!this.isInitialized) throw new Error('Database not initialized');
+
+    const vocabulary = this.getStoredVocabulary();
+    const filtered = vocabulary.filter(card => card.id !== id);
+    localStorage.setItem(STORAGE_KEYS.VOCABULARY, JSON.stringify(filtered));
+  }
+
   // Translation cache operations
   async cacheTranslation(cache: Omit<TranslationCache, 'id'>): Promise<void> {
     if (!this.isInitialized) throw new Error('Database not initialized');

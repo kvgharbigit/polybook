@@ -111,6 +111,13 @@ export default function HomeScreen() {
           >
             <Text style={styles.secondaryButtonText}>My Library</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.tertiaryButton}
+            onPress={() => navigate('Vocabulary')}
+          >
+            <Text style={styles.tertiaryButtonText}>📚 My Vocabulary</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.featuresContainer}>
@@ -180,6 +187,20 @@ const styles = StyleSheet.create({
     color: '#2c3e50',
     fontSize: 18,
     fontWeight: '600',
+    textAlign: 'center',
+  },
+  tertiaryButton: {
+    backgroundColor: '#f8f9fa',
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#dee2e6',
+  },
+  tertiaryButtonText: {
+    color: '#34495e',
+    fontSize: 16,
+    fontWeight: '500',
     textAlign: 'center',
   },
   featuresContainer: {
