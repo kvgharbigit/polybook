@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '../navigation/SimpleNavigator';
 import { useAppStore } from '../store/appStore';
 import { ContentParser } from '../services/contentParser';
 import { db } from '../services/databaseInterface';
+import TranslationPopup, { WordDefinition } from '../components/TranslationPopup';
+import { WordLookupService } from '../services/wordLookup';
 
 export default function ReaderScreen() {
   const { navigationState, goBack } = useNavigation();
@@ -15,7 +17,16 @@ export default function ReaderScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // Translation popup state
+  const [showPopup, setShowPopup] = useState(false);
+  const [selectedWord, setSelectedWord] = useState<string>('');
+  const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 });
+  const [wordDefinition, setWordDefinition] = useState<WordDefinition | null>(null);
+  const [isLookingUp, setIsLookingUp] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  
   const books = useAppStore(state => state.books);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     loadBookContent();
@@ -73,9 +84,63 @@ export default function ReaderScreen() {
     }
   };
 
-  const handleWordTap = (word: string) => {
+  const handleWordTap = async (word: string, event: any) => {
     console.log('Tapped word:', word);
-    // TODO: Implement word translation lookup
+    
+    // Get tap position for popup placement
+    const { pageX, pageY } = event.nativeEvent;
+    
+    setSelectedWord(word);
+    setPopupPosition({ x: pageX, y: pageY });
+    setShowPopup(true);
+    setIsLookingUp(true);
+    setLookupError(null);
+    setWordDefinition(null);
+    
+    try {
+      const definition = await WordLookupService.lookupWord(word);
+      setWordDefinition(definition);
+    } catch (error) {
+      console.error('Error looking up word:', error);
+      setLookupError('Failed to look up word. Please try again.');
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
+
+  const handleClosePopup = () => {
+    setShowPopup(false);
+    setSelectedWord('');
+    setWordDefinition(null);
+    setLookupError(null);
+  };
+
+  const handleSaveWord = async (word: string) => {
+    try {
+      // TODO: Save word to vocabulary database
+      console.log('Saving word to vocabulary:', word);
+      // For now, just show a success message
+      handleClosePopup();
+    } catch (error) {
+      console.error('Error saving word:', error);
+    }
+  };
+
+  const handleTranslateWord = async (word: string) => {
+    try {
+      console.log('Translating word:', word);
+      // TODO: Implement actual translation service
+      // For now, just retry the lookup
+      setIsLookingUp(true);
+      setLookupError(null);
+      const definition = await WordLookupService.lookupWord(word);
+      setWordDefinition(definition);
+    } catch (error) {
+      console.error('Error translating word:', error);
+      setLookupError('Translation failed. Please try again.');
+    } finally {
+      setIsLookingUp(false);
+    }
   };
 
   const renderContent = () => {
@@ -109,7 +174,11 @@ export default function ReaderScreen() {
     }
 
     return (
-      <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        ref={scrollViewRef}
+        style={styles.contentScroll} 
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.textContainer}>
           {content.split(/(\s+)/).map((segment, index) => {
             // Check if it's a word (not whitespace)
@@ -119,8 +188,9 @@ export default function ReaderScreen() {
               return (
                 <TouchableOpacity 
                   key={index}
-                  onPress={() => handleWordTap(segment.trim())}
+                  onPress={(event) => handleWordTap(segment.trim(), event)}
                   style={styles.wordContainer}
+                  activeOpacity={0.7}
                 >
                   <Text style={styles.word}>{segment}</Text>
                 </TouchableOpacity>
@@ -167,6 +237,18 @@ export default function ReaderScreen() {
           </TouchableOpacity>
         </View>
       )}
+
+      <TranslationPopup
+        visible={showPopup}
+        word={selectedWord}
+        position={popupPosition}
+        definition={wordDefinition}
+        isLoading={isLookingUp}
+        error={lookupError}
+        onClose={handleClosePopup}
+        onSaveWord={handleSaveWord}
+        onTranslate={handleTranslateWord}
+      />
     </SafeAreaView>
   );
 }
