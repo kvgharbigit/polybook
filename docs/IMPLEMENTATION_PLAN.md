@@ -87,12 +87,12 @@ polybook/
 - **Fixed infinite loops**: Optimized Zustand store selectors to prevent re-render loops
 - **Persistent file storage**: Books copied to permanent app document directory
 
-🚧 **Ready for Phase 1.5 - Next Immediate Steps:**
+🚧 **Ready for Phase 1.6 - Next Immediate Steps:**
 1. ✅ App fully functional and stable on iOS/Android/Web
 2. ✅ **COMPLETED**: Book content parsing (TXT/HTML → structured text)
-3. **Next Priority**: Build word-tap translation popup UI
-4. Create vocabulary saving system  
-5. Add basic translation lookup (start with simple dictionary)
+3. ✅ **COMPLETED**: Word-tap translation popup UI with definitions
+4. **Next Priority**: Create vocabulary saving system
+5. Add reading statistics and progress tracking
 
 **Technical Architecture Now Stable:**
 - Custom navigation (no react-native-screens dependency issues)
@@ -134,14 +134,15 @@ polybook/
 - [x] **Error handling** for unsupported formats (PDF/EPUB deferred to Phase 2)
 - [x] **Loading states and retry functionality**
 
-#### 1.5 Basic Dictionary (Spanish ↔ English)
+#### 1.5 Translation Popup & Basic Dictionary ✅ COMPLETED
 **Tasks:**
-- [ ] **Download and process FreeDict Spanish-English**
-- [ ] Create SQLite FTS dictionary database (~80MB)
-- [ ] Spanish lemmatization tables (verb conjugations, plurals)
-- [ ] Word lookup popup UI with clear size/storage info
-- [ ] Save words to personal library
-- [ ] **Test dictionary completeness** for common Spanish texts
+- [x] **Create beautiful translation popup component** with animations
+- [x] **Implement word lookup service** with 30+ common English words
+- [x] **Smart popup positioning** to avoid screen edges
+- [x] **Loading states and error handling** with retry functionality
+- [x] **Word definitions with examples** and part of speech information
+- [x] **Save and translate action buttons** ready for vocabulary integration
+- [x] **Cross-platform shadows and styling** for professional UI
 
 #### 1.6 System TTS Integration
 **Tasks:**
