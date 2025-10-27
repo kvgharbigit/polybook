@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PAIR="${1:?usage: build-unified-pack.sh eng-spa|spa-eng|eng-fra|...}"
-OUT_DIR="dist/packs"
+OUT_DIR="./dist/packs"
 WORK_DIR="tmp-unified-${PAIR}"
 mkdir -p "$OUT_DIR" "$WORK_DIR"
 
@@ -356,13 +356,13 @@ fi
 
 # Create final package
 echo "📦 Creating final package..."
-zip -9 "../$OUT_DIR/${PAIR}.sqlite.zip" "${PAIR}.sqlite"
+zip -9 "$OUT_DIR/${PAIR}.sqlite.zip" "${PAIR}.sqlite"
 
 # Generate metadata with source information
-bytes=$(stat -f%z "../$OUT_DIR/${PAIR}.sqlite.zip" 2>/dev/null || stat -c%s "../$OUT_DIR/${PAIR}.sqlite.zip")
-sha=$(shasum -a 256 "../$OUT_DIR/${PAIR}.sqlite.zip" | awk '{print $1}')
+bytes=$(stat -f%z "$OUT_DIR/${PAIR}.sqlite.zip" 2>/dev/null || stat -c%s "$OUT_DIR/${PAIR}.sqlite.zip")
+sha=$(shasum -a 256 "$OUT_DIR/${PAIR}.sqlite.zip" | awk '{print $1}')
 
-cat > "../$OUT_DIR/${PAIR}.json" <<JSON
+cat > "$OUT_DIR/${PAIR}.json" <<JSON
 {
   "id": "${PAIR}",
   "type": "bilingual",
@@ -377,8 +377,8 @@ cat > "../$OUT_DIR/${PAIR}.json" <<JSON
 }
 JSON
 
-echo "✅ Built: ${PAIR}.sqlite.zip ($(numfmt --to=iec $bytes))"
-echo "📄 Metadata: ${PAIR}.json"
+echo "✅ Built: $OUT_DIR/${PAIR}.sqlite.zip ($(numfmt --to=iec $bytes))"
+echo "📄 Metadata: $OUT_DIR/${PAIR}.json"
 echo "📊 Source: $SOURCE ($SIZE → $(numfmt --to=iec $bytes))"
 
 # Cleanup
