@@ -849,6 +849,39 @@ export class SQLiteDictionaryService {
   }
 
   /**
+   * Cleanup resources and close database connections
+   */
+  static async cleanup(): Promise<void> {
+    try {
+      console.log('📚 SQLiteDictionaryService: Cleaning up resources...');
+      
+      // Close all database connections
+      const closePromises = Array.from(this.databases.values()).map(async (db) => {
+        try {
+          if (db && typeof db.closeAsync === 'function') {
+            await db.closeAsync();
+          }
+        } catch (error) {
+          console.warn('📚 SQLiteDictionaryService: Error closing database:', error);
+        }
+      });
+      
+      await Promise.all(closePromises);
+      
+      // Clear all references
+      this.databases.clear();
+      this.initialized = false;
+      this.initializationPromise = null;
+      this.initializationError = null;
+      
+      console.log('📚 SQLiteDictionaryService: Cleanup completed');
+      
+    } catch (error) {
+      console.error('📚 SQLiteDictionaryService: Cleanup failed:', error);
+    }
+  }
+
+  /**
    * Clean HTML definition (remove HTML tags, keep content)
    */
   private static cleanHtmlDefinition(htmlDefinition: string): string {
