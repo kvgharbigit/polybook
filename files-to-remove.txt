@@ -1,0 +1,5 @@
+packages/app/assets/dictionaries/es-extract.jsonl
+packages/app/assets/dictionaries/es-extract.jsonl.gz  
+packages/app/assets/dictionaries/en-extract.jsonl.gz
+tools/tmp-unified-eng-spa/eng-spa.sql
+tools/tmp-unified-de-en/de-en.sql
