@@ -1,8 +1,8 @@
 /**
- * Language Pack Types for Offline Translation
+ * Language Pack Types for Dictionary Services
  * 
  * Defines the structure for downloadable language packs containing
- * Bergamot/Marian neural machine translation models
+ * SQLite dictionaries for word lookup (ML Kit handles translation)
  */
 
 export interface LanguagePackManifest {
@@ -26,10 +26,11 @@ export interface LanguagePackManifest {
     source: 'wiktionary' | 'custom';
   };
   
-  // Translation models (for sentence translation)
-  models: {
-    sourceToTarget: LanguageModel;  // es → en
-    targetToSource: LanguageModel;  // en → es
+  // ML Kit language support (for sentence translation)
+  mlKitSupport: {
+    sourceToTarget: boolean;  // es → en
+    targetToSource: boolean;  // en → es
+    downloadSize: number;     // Estimated ML Kit model size in bytes
   };
   
   // Metadata
@@ -39,19 +40,19 @@ export interface LanguagePackManifest {
   deprecated?: boolean;          // If this version is deprecated
 }
 
-export interface LanguageModel {
-  filename: string;              // e.g., 'es-en.bergamot'
-  size: number;                  // Size in bytes
-  checksum: string;              // SHA-256 hash
-  quality: 'fast' | 'balanced' | 'high';  // Quality/speed tradeoff
+export interface MLKitLanguageSupport {
+  sourceLanguage: string;        // ISO 639-1 code
+  targetLanguage: string;        // ISO 639-1 code
+  available: boolean;            // Whether ML Kit supports this pair
   
-  // Performance metadata
+  // Performance metadata (estimated)
   estimatedSpeed: number;        // Words per second on reference device
   memoryUsage: number;           // Peak memory usage in MB
+  downloadSize: number;          // Model download size in bytes
   
-  // Model-specific settings
-  beamSize: number;              // Default beam size for translation
-  maxInputLength: number;        // Maximum input sentence length
+  // Quality information
+  quality: 'fast' | 'balanced' | 'high';  // Quality/speed tradeoff
+  offline: boolean;              // Whether this works offline
 }
 
 export interface LanguagePackDownload {
@@ -79,9 +80,9 @@ export interface InstalledLanguagePack {
   
   // Local storage paths
   dictionaryPath: string;        // SQLite dictionary file path
-  modelPaths: {
-    sourceToTarget: string;      // Bergamot model file path
-    targetToSource: string;      // Bergamot model file path
+  mlKitStatus: {
+    sourceToTarget: 'available' | 'downloading' | 'downloaded' | 'error';  // ML Kit model status
+    targetToSource: 'available' | 'downloading' | 'downloaded' | 'error';  // ML Kit model status
   };
   
   // Usage statistics
@@ -116,29 +117,12 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
       entries: 43638, // Full dictionary entries from natural build
       source: 'wiktionary'
     },
-    models: {
-      sourceToTarget: {
-        filename: 'es-en.bergamot',
-        size: 90 * 1024 * 1024, // ~90MB
-        checksum: 'placeholder_checksum_es_en_model',
-        quality: 'balanced',
-        estimatedSpeed: 150, // words per second
-        memoryUsage: 200, // MB
-        beamSize: 4,
-        maxInputLength: 512
-      },
-      targetToSource: {
-        filename: 'en-es.bergamot',
-        size: 90 * 1024 * 1024, // ~90MB
-        checksum: 'placeholder_checksum_en_es_model',
-        quality: 'balanced',
-        estimatedSpeed: 150, // words per second
-        memoryUsage: 200, // MB
-        beamSize: 4,
-        maxInputLength: 512
-      }
+    mlKitSupport: {
+      sourceToTarget: true,  // Spanish to English supported
+      targetToSource: true,  // English to Spanish supported
+      downloadSize: 45 * 1024 * 1024, // ~45MB per direction
     },
-    description: 'Complete language pack with Wiktionary dictionary (43k entries) for word lookup and Bergamot models for sentence translation.',
+    description: 'Complete language pack with Wiktionary dictionary (43k entries) for word lookup and ML Kit support for sentence translation.',
     releaseDate: '2024-01-15T00:00:00Z',
     minAppVersion: '1.0.0'
   },
@@ -159,29 +143,12 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
       entries: 12130, // Actual entries from build
       source: 'wiktionary'
     },
-    models: {
-      sourceToTarget: {
-        filename: 'de-en.bergamot',
-        size: 89 * 1024 * 1024,
-        checksum: 'placeholder_checksum_de_en_model',
-        quality: 'balanced',
-        estimatedSpeed: 140,
-        memoryUsage: 190,
-        beamSize: 4,
-        maxInputLength: 512
-      },
-      targetToSource: {
-        filename: 'en-de.bergamot',
-        size: 89 * 1024 * 1024,
-        checksum: 'placeholder_checksum_en_de_model',
-        quality: 'balanced',
-        estimatedSpeed: 140,
-        memoryUsage: 190,
-        beamSize: 4,
-        maxInputLength: 512
-      }
+    mlKitSupport: {
+      sourceToTarget: true,  // German to English supported
+      targetToSource: true,  // English to German supported
+      downloadSize: 43 * 1024 * 1024, // ~43MB per direction
     },
-    description: 'German-English language pack with comprehensive Wiktionary dictionary and neural translation models.',
+    description: 'German-English language pack with comprehensive Wiktionary dictionary and ML Kit translation support.',
     releaseDate: '2024-01-15T00:00:00Z',
     minAppVersion: '1.0.0'
   },
@@ -202,29 +169,12 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
       entries: 18000, // Estimated
       source: 'wiktionary'
     },
-    models: {
-      sourceToTarget: {
-        filename: 'fr-en.bergamot',
-        size: 85 * 1024 * 1024,
-        checksum: 'placeholder_checksum_fr_en_model',
-        quality: 'balanced',
-        estimatedSpeed: 140,
-        memoryUsage: 190,
-        beamSize: 4,
-        maxInputLength: 512
-      },
-      targetToSource: {
-        filename: 'en-fr.bergamot',
-        size: 85 * 1024 * 1024,
-        checksum: 'placeholder_checksum_en_fr_model',
-        quality: 'balanced',
-        estimatedSpeed: 140,
-        memoryUsage: 190,
-        beamSize: 4,
-        maxInputLength: 512
-      }
+    mlKitSupport: {
+      sourceToTarget: true,  // French to English supported
+      targetToSource: true,  // English to French supported
+      downloadSize: 42 * 1024 * 1024, // ~42MB per direction
     },
-    description: 'French-English language pack with Wiktionary dictionary and neural translation models.',
+    description: 'French-English language pack with Wiktionary dictionary and ML Kit translation support.',
     releaseDate: '2024-01-15T00:00:00Z',
     minAppVersion: '1.0.0'
   },
@@ -245,29 +195,12 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
       entries: 15000, // Estimated
       source: 'wiktionary'
     },
-    models: {
-      sourceToTarget: {
-        filename: 'ko-en.bergamot',
-        size: 90 * 1024 * 1024, // ~90MB
-        checksum: 'placeholder_checksum_ko_en_model',
-        quality: 'balanced',
-        estimatedSpeed: 120, // words per second
-        memoryUsage: 220, // MB
-        beamSize: 6, // Larger beam for Korean
-        maxInputLength: 256
-      },
-      targetToSource: {
-        filename: 'en-ko.bergamot',
-        size: 90 * 1024 * 1024, // ~90MB
-        checksum: 'placeholder_checksum_en_ko_model',
-        quality: 'balanced',
-        estimatedSpeed: 120,
-        memoryUsage: 220,
-        beamSize: 6,
-        maxInputLength: 256
-      }
+    mlKitSupport: {
+      sourceToTarget: true,  // Korean to English supported
+      targetToSource: true,  // English to Korean supported
+      downloadSize: 47 * 1024 * 1024, // ~47MB per direction
     },
-    description: 'Korean-English language pack with Wiktionary dictionary and specialized neural translation models.',
+    description: 'Korean-English language pack with Wiktionary dictionary and ML Kit translation support.',
     releaseDate: '2024-01-15T00:00:00Z',
     minAppVersion: '1.0.0'
   },
@@ -288,29 +221,12 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
       entries: 18000, // Estimated
       source: 'wiktionary'
     },
-    models: {
-      sourceToTarget: {
-        filename: 'ar-en.bergamot',
-        size: 95 * 1024 * 1024, // ~95MB
-        checksum: 'placeholder_checksum_ar_en_model',
-        quality: 'balanced',
-        estimatedSpeed: 110, // words per second
-        memoryUsage: 230, // MB
-        beamSize: 6, // Larger beam for Arabic
-        maxInputLength: 256
-      },
-      targetToSource: {
-        filename: 'en-ar.bergamot',
-        size: 95 * 1024 * 1024, // ~95MB
-        checksum: 'placeholder_checksum_en_ar_model',
-        quality: 'balanced',
-        estimatedSpeed: 110,
-        memoryUsage: 230,
-        beamSize: 6,
-        maxInputLength: 256
-      }
+    mlKitSupport: {
+      sourceToTarget: true,  // Arabic to English supported
+      targetToSource: true,  // English to Arabic supported
+      downloadSize: 49 * 1024 * 1024, // ~49MB per direction
     },
-    description: 'Arabic-English language pack with Wiktionary dictionary and specialized neural translation models.',
+    description: 'Arabic-English language pack with Wiktionary dictionary and ML Kit translation support.',
     releaseDate: '2024-01-15T00:00:00Z',
     minAppVersion: '1.0.0'
   },
@@ -331,29 +247,12 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
       entries: 8000, // Estimated
       source: 'wiktionary'
     },
-    models: {
-      sourceToTarget: {
-        filename: 'hi-en.bergamot',
-        size: 85 * 1024 * 1024, // ~85MB
-        checksum: 'placeholder_checksum_hi_en_model',
-        quality: 'balanced',
-        estimatedSpeed: 130, // words per second
-        memoryUsage: 210, // MB
-        beamSize: 5,
-        maxInputLength: 256
-      },
-      targetToSource: {
-        filename: 'en-hi.bergamot',
-        size: 85 * 1024 * 1024, // ~85MB
-        checksum: 'placeholder_checksum_en_hi_model',
-        quality: 'balanced',
-        estimatedSpeed: 130,
-        memoryUsage: 210,
-        beamSize: 5,
-        maxInputLength: 256
-      }
+    mlKitSupport: {
+      sourceToTarget: true,  // Hindi to English supported
+      targetToSource: true,  // English to Hindi supported
+      downloadSize: 44 * 1024 * 1024, // ~44MB per direction
     },
-    description: 'Hindi-English language pack with Wiktionary dictionary and neural translation models.',
+    description: 'Hindi-English language pack with Wiktionary dictionary and ML Kit translation support.',
     releaseDate: '2024-01-15T00:00:00Z',
     minAppVersion: '1.0.0'
   },
@@ -374,29 +273,12 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
       entries: 25000, // Estimated
       source: 'wiktionary'
     },
-    models: {
-      sourceToTarget: {
-        filename: 'ja-en.bergamot',
-        size: 90 * 1024 * 1024,
-        checksum: 'placeholder_checksum_ja_en_model',
-        quality: 'balanced',
-        estimatedSpeed: 120, // Slower for Japanese
-        memoryUsage: 220,
-        beamSize: 6, // Larger beam for Japanese
-        maxInputLength: 256
-      },
-      targetToSource: {
-        filename: 'en-ja.bergamot',
-        size: 89 * 1024 * 1024,
-        checksum: 'placeholder_checksum_en_ja_model',
-        quality: 'balanced',
-        estimatedSpeed: 120,
-        memoryUsage: 220,
-        beamSize: 6,
-        maxInputLength: 256
-      }
+    mlKitSupport: {
+      sourceToTarget: true,  // Japanese to English supported
+      targetToSource: true,  // English to Japanese supported
+      downloadSize: 46 * 1024 * 1024, // ~46MB per direction
     },
-    description: 'Japanese-English language pack with Wiktionary dictionary and specialized neural translation models.',
+    description: 'Japanese-English language pack with Wiktionary dictionary and ML Kit translation support.',
     releaseDate: '2024-01-15T00:00:00Z',
     minAppVersion: '1.0.0'
   }

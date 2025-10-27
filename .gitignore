@@ -158,3 +158,24 @@ buck-out/
 
 # Sentry
 .sentryclirc
+
+# ---- Translation dictionaries & build artifacts ----
+# Ignore all raw extracts and temp builds
+packages/app/assets/dictionaries/*.jsonl
+packages/app/assets/dictionaries/*.jsonl.gz
+tools/tmp-unified-*/
+tools/**/*.sql
+tools/**/*.sqlite
+tools/**/*.db
+tools/**/*.csv
+tools/**/*.tsv
+tools/**/*.jsonl
+tools/**/*.jsonl.gz
+
+# Allow the *small, final* app assets back in:
+# (update these keep rules to match the exact files you want to ship)
+!packages/app/assets/dictionaries/*.sqlite
+!packages/app/assets/dictionaries/*.sqlite.gz
+!packages/app/assets/dictionaries/*.pack
+!packages/app/assets/dictionaries/manifest.json
+!packages/app/assets/dictionaries/README.md
