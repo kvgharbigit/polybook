@@ -14,7 +14,15 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        pair: [eng-spa, spa-eng]  # Focus on Spanish-English for testing
+        pair: [
+          eng-spa, spa-eng,     # Spanish ↔ English (priority - have local data)
+          eng-fra, fra-eng,     # French ↔ English  
+          eng-deu, deu-eng,     # German ↔ English
+          eng-kor, kor-eng,     # Korean ↔ English
+          eng-ara, ara-eng,     # Arabic ↔ English
+          eng-hin, hin-eng,     # Hindi ↔ English
+          eng-jpn, jpn-eng      # Japanese ↔ English
+        ]
     
     steps:
     - uses: actions/checkout@v4
