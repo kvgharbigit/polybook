@@ -9,6 +9,9 @@ on:
       - 'tools/**'
       - '.github/workflows/build-all-packs.yml'
 
+permissions:
+  contents: write
+  
 jobs:
   build-bilingual:
     runs-on: ubuntu-latest
@@ -94,7 +97,7 @@ jobs:
           **ADDITIONAL SUPPORTED LANGUAGES:**
           - eng-fra/fra-eng (3.2MB Wiktionary): English ↔ French
           - eng-deu/deu-eng (6.9MB Wiktionary): English ↔ German
-          - eng-ita/ita-eng (5.3MB Wiktionary): English ↔ Italian
+          - eng-ita/ita-eng (5.3MB Wiktionary): Italian ↔ English
           - eng-por/por-eng (2.6MB Wiktionary): English ↔ Portuguese
           - eng-rus/rus-eng (4.2MB Wiktionary): English ↔ Russian
           - eng-kor/kor-eng (2.1MB Wiktionary): English ↔ Korean
@@ -105,6 +108,5 @@ jobs:
           final-packs/*.zip
           final-packs/registry.json
         prerelease: false
-        make_latest: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
