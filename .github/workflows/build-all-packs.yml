@@ -21,7 +21,11 @@ jobs:
           eng-kor, kor-eng,     # Korean ↔ English
           eng-ara, ara-eng,     # Arabic ↔ English
           eng-hin, hin-eng,     # Hindi ↔ English
-          eng-jpn, jpn-eng      # Japanese ↔ English
+          eng-jpn, jpn-eng,     # Japanese ↔ English
+          eng-por, por-eng,     # Portuguese ↔ English
+          eng-ita, ita-eng,     # Italian ↔ English
+          eng-rus, rus-eng,     # Russian ↔ English
+          eng-chn, chn-eng      # Chinese ↔ English
         ]
     
     steps:

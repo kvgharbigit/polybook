@@ -281,6 +281,110 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
     description: 'Japanese-English language pack with Wiktionary dictionary and ML Kit translation support.',
     releaseDate: '2024-01-15T00:00:00Z',
     minAppVersion: '1.0.0'
+  },
+
+  {
+    id: 'pt-en',
+    name: 'Portuguese ↔ English',
+    version: '1.0.0',
+    sourceLanguage: 'pt',
+    targetLanguage: 'en',
+    totalSize: 2662400, // 2.6MB
+    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/latest/download/por-eng.sqlite.zip',
+    checksum: 'portuguese_database_checksum_here',
+    dictionary: {
+      filename: 'pt-en.sqlite',
+      size: 2662400, // 2.6MB
+      checksum: 'portuguese_database_checksum_here',
+      entries: 16000, // Estimated
+      source: 'wiktionary'
+    },
+    mlKitSupport: {
+      sourceToTarget: true,  // Portuguese to English supported
+      targetToSource: true,  // English to Portuguese supported
+      downloadSize: 42 * 1024 * 1024, // ~42MB per direction
+    },
+    description: 'Portuguese-English language pack with Wiktionary dictionary and ML Kit translation support.',
+    releaseDate: '2024-01-15T00:00:00Z',
+    minAppVersion: '1.0.0'
+  },
+
+  {
+    id: 'it-en',
+    name: 'Italian ↔ English',
+    version: '1.0.0',
+    sourceLanguage: 'it',
+    targetLanguage: 'en',
+    totalSize: 5529600, // 5.3MB
+    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/latest/download/ita-eng.sqlite.zip',
+    checksum: 'italian_database_checksum_here',
+    dictionary: {
+      filename: 'it-en.sqlite',
+      size: 5529600, // 5.3MB
+      checksum: 'italian_database_checksum_here',
+      entries: 22000, // Estimated
+      source: 'wiktionary'
+    },
+    mlKitSupport: {
+      sourceToTarget: true,  // Italian to English supported
+      targetToSource: true,  // English to Italian supported
+      downloadSize: 43 * 1024 * 1024, // ~43MB per direction
+    },
+    description: 'Italian-English language pack with Wiktionary dictionary and ML Kit translation support.',
+    releaseDate: '2024-01-15T00:00:00Z',
+    minAppVersion: '1.0.0'
+  },
+
+  {
+    id: 'ru-en',
+    name: 'Russian ↔ English',
+    version: '1.0.0',
+    sourceLanguage: 'ru',
+    targetLanguage: 'en',
+    totalSize: 4408320, // 4.2MB
+    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/latest/download/rus-eng.sqlite.zip',
+    checksum: 'russian_database_checksum_here',
+    dictionary: {
+      filename: 'ru-en.sqlite',
+      size: 4408320, // 4.2MB
+      checksum: 'russian_database_checksum_here',
+      entries: 20000, // Estimated
+      source: 'wiktionary'
+    },
+    mlKitSupport: {
+      sourceToTarget: true,  // Russian to English supported
+      targetToSource: true,  // English to Russian supported
+      downloadSize: 45 * 1024 * 1024, // ~45MB per direction
+    },
+    description: 'Russian-English language pack with Wiktionary dictionary and ML Kit translation support.',
+    releaseDate: '2024-01-15T00:00:00Z',
+    minAppVersion: '1.0.0'
+  },
+
+  {
+    id: 'zh-en',
+    name: 'Chinese ↔ English',
+    version: '1.0.0',
+    sourceLanguage: 'zh',
+    targetLanguage: 'en',
+    totalSize: 4823040, // 4.6MB
+    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/latest/download/chn-eng.sqlite.zip',
+    checksum: 'chinese_database_checksum_here',
+    dictionary: {
+      filename: 'zh-en.sqlite',
+      size: 4823040, // 4.6MB
+      checksum: 'chinese_database_checksum_here',
+      entries: 23000, // Estimated
+      source: 'wiktionary'
+    },
+    mlKitSupport: {
+      sourceToTarget: true,  // Chinese to English supported
+      targetToSource: true,  // English to Chinese supported
+      downloadSize: 48 * 1024 * 1024, // ~48MB per direction
+    },
+    description: 'Chinese-English language pack with Wiktionary dictionary and ML Kit translation support.',
+    releaseDate: '2024-01-15T00:00:00Z',
+    minAppVersion: '1.0.0'
   }
 ];
 
