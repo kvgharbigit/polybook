@@ -30,11 +30,25 @@ jobs:
         cd tools
         ./build-unified-pack.sh ${{ matrix.pair }}
     
+    - name: List outputs (debug)
+      run: |
+        echo "PWD=$(pwd)"
+        echo "Working directory after build:"
+        pwd
+        echo "Looking for files anywhere:"
+        find . -name "${{ matrix.pair }}.*" -type f
+        echo "Tools directory:"
+        ls -la tools/dist/packs/ || echo "No tools/dist/packs/ directory"
+        echo "Files in tools/dist/packs/:"
+        ls -la tools/dist/packs/${{ matrix.pair }}.* || echo "No files match pattern"
+    
     - name: Upload pack artifact
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.pair }}
         path: tools/dist/packs/${{ matrix.pair }}.*
+        if-no-files-found: error
+        retention-days: 14
 
 
   publish-release:
@@ -52,8 +66,11 @@ jobs:
     - name: Flatten artifacts
       run: |
         mkdir -p final-packs
-        find dist/packs/ -name "*.zip" -exec cp {} final-packs/ \;
-        find dist/packs/ -name "*.json" -exec cp {} final-packs/ \;
+        echo "Downloaded artifacts structure:"
+        ls -la dist/packs/ || echo "No dist/packs directory"
+        find dist/packs/ -type f -name "*.zip" -exec cp {} final-packs/ \;
+        find dist/packs/ -type f -name "*.json" -exec cp {} final-packs/ \;
+        echo "Final packs contents:"
         ls -la final-packs/
     
     - name: Generate registry
