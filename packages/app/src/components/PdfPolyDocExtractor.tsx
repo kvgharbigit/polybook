@@ -50,6 +50,12 @@ export function PdfPolyDocExtractor({
       });
 
       console.log('📄 PdfPolyDocExtractor: File read, sending to WebView');
+      const message = {
+        cmd: 'extract',
+        base64: base64.substring(0, 100) + '...', // Log truncated base64 for privacy
+        opts: {}
+      };
+      console.log('📄 PdfPolyDocExtractor: Sending message to WebView:', message);
       webViewRef.current?.postMessage(JSON.stringify({
         cmd: 'extract',
         base64,
@@ -63,8 +69,9 @@ export function PdfPolyDocExtractor({
 
   const handleMessage = useCallback((event: any) => {
     try {
+      console.log('📄 PdfPolyDocExtractor: Raw message data:', event.nativeEvent.data);
       const message = JSON.parse(event.nativeEvent.data);
-      console.log('📄 PdfPolyDocExtractor: Received message:', message.type);
+      console.log('📄 PdfPolyDocExtractor: Parsed message:', JSON.stringify(message, null, 2));
 
       switch (message.type) {
         case 'status':
@@ -84,6 +91,9 @@ export function PdfPolyDocExtractor({
 
         case 'chunk':
           console.log(`📄 PdfPolyDocExtractor: Received chunk with ${message.blocks.length} blocks`);
+          console.log('📄 PdfPolyDocExtractor: Chunk content:', message.blocks.map((block: any, i: number) => 
+            `Block ${i}: "${block.text?.substring(0, 100)}${block.text?.length > 100 ? '...' : ''}"`
+          ));
           onChunk?.(message.blocks);
           break;
 

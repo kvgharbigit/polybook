@@ -17,8 +17,12 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.js';
 
     function post(type, payload) {
+      const message = { type, ...payload };
+      console.log('🌐 WebView: Posting message:', type, payload);
       if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({ type, ...payload }));
+        window.ReactNativeWebView.postMessage(JSON.stringify(message));
+      } else {
+        console.warn('🌐 WebView: ReactNativeWebView not available');
       }
     }
 

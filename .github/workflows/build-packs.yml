@@ -1,0 +1,105 @@
+name: Build Dictionary Packs
+
+on:
+  workflow_dispatch:  # Manual trigger
+  push:
+    paths:
+      - 'tools/build-pack.sh'
+      - '.github/workflows/build-packs.yml'
+
+jobs:
+  build-packs:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-pip sqlite3 curl
+        pip3 install pyglossary
+    
+    - name: Build dictionary packs
+      run: |
+        cd tools
+        mkdir -p ../dist/packs
+        
+        # Build bilingual FreeDict packs
+        echo "🌍 Building bilingual dictionaries..."
+        ./build-pack.sh eng-spa
+        ./build-pack.sh spa-eng
+        ./build-pack.sh eng-fra  
+        ./build-pack.sh eng-deu
+        ./build-pack.sh eng-ita
+        ./build-pack.sh eng-por
+        
+        echo "📊 Pack Summary:"
+        ls -lh ../dist/packs/
+    
+    - name: Generate registry
+      run: |
+        cd dist/packs
+        
+        # Create registry.json
+        cat > registry.json << 'EOF'
+        {
+          "version": "2025-10-27",
+          "baseUrl": "https://github.com/${{ github.repository }}/releases/download/packs/",
+          "packs": {
+        EOF
+        
+        # Add each pack to registry
+        first=true
+        for json_file in *.json; do
+          if [[ "$json_file" != "registry.json" ]]; then
+            if [[ "$first" != "true" ]]; then
+              echo "," >> registry.json
+            fi
+            first=false
+            
+            pack_id=$(basename "$json_file" .json)
+            pack_data=$(cat "$json_file")
+            
+            echo "    \"$pack_id\": {" >> registry.json
+            echo "      \"url\": \"https://github.com/${{ github.repository }}/releases/download/packs/${pack_id}.sqlite.zip\"," >> registry.json
+            echo "      \"bytes\": $(echo "$pack_data" | jq .bytes)," >> registry.json
+            echo "      \"sha256\": $(echo "$pack_data" | jq -r .sha256)," >> registry.json
+            echo "      \"license\": \"GPL-2.0-or-later\"," >> registry.json
+            echo "      \"source\": \"FreeDict\"" >> registry.json
+            echo -n "    }" >> registry.json
+          fi
+        done
+        
+        cat >> registry.json << 'EOF'
+          }
+        }
+        EOF
+        
+        echo "📄 Generated registry.json:"
+        cat registry.json | jq .
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: packs
+        name: Dictionary Packs
+        body: |
+          Offline dictionary packs built from FreeDict sources
+          
+          **Available Packs:**
+          - eng-spa: English → Spanish (60k+ entries)
+          - spa-eng: Spanish → English (4.5k+ entries)  
+          - eng-fra: English → French (70k+ entries)
+          - eng-deu: English → German (120k+ entries)
+          - eng-ita: English → Italian (40k+ entries)
+          - eng-por: English → Portuguese (35k+ entries)
+          
+          **Usage:** Download registry.json to get pack URLs and metadata.
+        files: |
+          dist/packs/*.zip
+          dist/packs/registry.json
+        prerelease: false
+        make_latest: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

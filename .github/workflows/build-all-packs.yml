@@ -1,0 +1,141 @@
+name: Build All Dictionary Packs
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly on Sunday at 2 AM
+  push:
+    paths:
+      - 'tools/**'
+      - '.github/workflows/build-all-packs.yml'
+
+jobs:
+  build-bilingual:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        pair: [eng-spa, spa-eng, eng-fra, fra-eng, eng-deu, deu-eng, eng-ita, ita-eng, eng-por, por-eng, eng-rus, rus-eng]  # TOP 7 LANGUAGES OPTIMAL STRATEGY
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-pip sqlite3 curl
+        pip3 install pyglossary
+    
+    - name: Build optimal bilingual pack
+      run: |
+        cd tools
+        ./build-unified-pack.sh ${{ matrix.pair }}
+    
+    - name: Upload pack artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.pair }}
+        path: tools/../dist/packs/${{ matrix.pair }}.*
+
+  build-monolingual:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        lang: [en]  # Only English monolingual exists - others covered by bilingual strategy
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-pip sqlite3 curl wget
+        pip3 install pyglossary wiktextract
+    
+    - name: Build monolingual pack
+      run: |
+        cd tools
+        ./build-wiktionary-pack.sh ${{ matrix.lang }}
+    
+    - name: Upload pack artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: wiktionary-${{ matrix.lang }}
+        path: tools/../dist/packs/wiktionary-${{ matrix.lang }}.*
+
+  build-bergamot:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        direction: [en-es, es-en, en-fr, fr-en, en-de, de-en]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Build Bergamot pack
+      run: |
+        cd tools
+        ./build-bergamot-pack.sh ${{ matrix.direction }}
+    
+    - name: Upload pack artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: bergamot-${{ matrix.direction }}
+        path: tools/../dist/packs/bergamot-${{ matrix.direction }}.*
+
+  publish-release:
+    needs: [build-bilingual, build-monolingual, build-bergamot]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: dist/packs/
+    
+    - name: Flatten artifacts
+      run: |
+        mkdir -p final-packs
+        find dist/packs/ -name "*.zip" -exec cp {} final-packs/ \;
+        find dist/packs/ -name "*.json" -exec cp {} final-packs/ \;
+        ls -la final-packs/
+    
+    - name: Generate registry
+      run: |
+        cd final-packs
+        python3 ../tools/generate-registry.py > registry.json
+        cat registry.json
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: packs-${{ github.run_number }}
+        name: Dictionary Packs v${{ github.run_number }}
+        body: |
+          Complete offline dictionary pack collection
+          
+          **TOP 7 LANGUAGES OPTIMAL STRATEGY:**
+          - eng-spa (4.5MB FreeDict), spa-eng (0.1MB FreeDict): English ↔ Spanish
+          - eng-fra/fra-eng (3.2MB Wiktionary): English ↔ French (better than tiny FreeDict)
+          - eng-deu (25.6MB FreeDict), deu-eng (34.7MB FreeDict): English ↔ German
+          - eng-ita/ita-eng (5.3MB Wiktionary): English ↔ Italian
+          - eng-por/por-eng (2.6MB Wiktionary): English ↔ Portuguese
+          - eng-rus/rus-eng (4.2MB Wiktionary): English ↔ Russian
+          
+          **Monolingual:**
+          - wiktionary-en (20.8MB): English definitions only
+          
+          **Bergamot Translation:**
+          - bergamot-en-es, bergamot-es-en
+          - bergamot-en-fr, bergamot-fr-en
+          - bergamot-en-de, bergamot-de-en
+          
+          Built from: FreeDict ${{ github.sha }}
+        files: |
+          final-packs/*.zip
+          final-packs/registry.json
+        prerelease: false
+        make_latest: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
