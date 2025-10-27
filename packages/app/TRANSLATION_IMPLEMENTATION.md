@@ -8,9 +8,9 @@ Your translation system now features a clean, production-ready architecture that
 
 #### **🌐 Expo Go: Online Translation (Development Only)**
 *Instant development & testing - NOT FOR PRODUCTION*
-- **Engine**: LibreTranslate (free public API)
-- **Speed**: ~500-1500ms per translation
-- **Coverage**: 58+ languages supported
+- **Engine**: Google Translate (unofficial API)
+- **Speed**: ~150ms per translation
+- **Coverage**: 100+ languages supported
 - **Storage**: Zero local storage required
 - **Internet**: Required for translation
 - **Setup**: Works immediately, no configuration
@@ -59,7 +59,7 @@ await Translation.translate('Hello', { from: 'en', to: 'es' });
 
 ### **Core Services**
 - `src/services/types.ts` - Unified translation interfaces
-- `src/services/online.ts` - LibreTranslate implementation
+- `src/services/online.ts` - Google Translate implementation
 - `src/services/mlkit.ts` - ML Kit native bridge
 - `src/services/index.ts` - Automatic engine selection
 
@@ -85,7 +85,7 @@ await Translation.translate('Hello', { from: 'en', to: 'es' });
 ```bash
 # Already works! No setup needed
 npm start
-# Translation uses LibreTranslate automatically
+# Translation uses Google Translate automatically
 ```
 
 ### **Production Setup (Dev Client)**
@@ -114,7 +114,7 @@ eas build --profile development --platform android
 
 ### **Expo Go (Online) - Development Only**
 - **Setup Time**: 0 seconds (works immediately)
-- **Translation Speed**: 500-1500ms
+- **Translation Speed**: ~150ms
 - **Storage**: 0MB
 - **Internet**: Required
 - **Use Case**: Development, testing, demos ONLY
@@ -165,7 +165,7 @@ Both engines support the same language set:
 - ❌ **Removed**: Bergamot WASM WebView complexity
 - ❌ **Removed**: File:// URL debugging and asset issues
 - ❌ **Removed**: Manual WASM loading and timing problems
-- ✅ **Added**: Clean LibreTranslate online service
+- ✅ **Added**: Clean Google Translate online service
 - ✅ **Added**: Native ML Kit offline service
 - ✅ **Added**: Automatic environment detection
 - ✅ **Added**: Unified service interface

@@ -274,7 +274,7 @@ export default function TranslationModelsTab({ onRefresh }: TranslationModelsTab
 
       if (result.text && result.text !== text) {
         const engineInfo = serviceInfo?.currentEngine === 'online' ? 
-          'Online (LibreTranslate)' : 'Offline (ML Kit)';
+          'Online (Google Translate)' : 'Offline (ML Kit)';
           
         Alert.alert(
           '✅ Translation Test Successful',
@@ -433,7 +433,7 @@ export default function TranslationModelsTab({ onRefresh }: TranslationModelsTab
   const isOnlineMode = serviceInfo?.currentEngine === 'online';
   const engineName = isOnlineMode ? 'Online Translation' : 'ML Kit Offline';
   const engineDescription = isOnlineMode ? 
-    'Free cloud translation via LibreTranslate' : 
+    'Free cloud translation via Google Translate' : 
     'On-device translation with Google ML Kit';
 
   return (
@@ -464,7 +464,7 @@ export default function TranslationModelsTab({ onRefresh }: TranslationModelsTab
       <View style={styles.footer}>
         <Text style={styles.footerText}>
           {isOnlineMode ? (
-            `• Online translation works instantly in Expo Go\n• No model downloads needed\n• Requires internet connection\n• Powered by LibreTranslate (free service)`
+            `• Online translation works instantly in Expo Go\n• No model downloads needed\n• Requires internet connection\n• Powered by Google Translate (unofficial API)`
           ) : (
             `• Offline translation after model download\n• Each model ~25MB, works without internet\n• Download individually per language\n• Powered by Google ML Kit`
           )}

@@ -6,7 +6,7 @@
 Your translation system now features a modern, production-ready architecture:
 
 #### **🌐 Expo Go: Online Translation (Development Only)**
-*LibreTranslate for development convenience - NOT for production deployment*
+*Google Translate for development convenience - NOT for production deployment*
 - **Speed**: 500-1500ms per translation
 - **Languages**: 58+ supported languages
 - **Storage**: Zero local storage required
@@ -50,7 +50,7 @@ await Translation.translate('Hello', { from: 'en', to: 'es' });
 
 ### **Core Services**
 - `src/services/types.ts` - Unified translation interfaces
-- `src/services/online.ts` - LibreTranslate implementation  
+- `src/services/online.ts` - Google Translate implementation  
 - `src/services/mlkit.ts` - ML Kit native bridge
 - `src/services/index.ts` - Automatic engine selection
 
@@ -72,7 +72,7 @@ await Translation.translate('Hello', { from: 'en', to: 'es' });
 ```bash
 # Already works! No setup needed
 npm start
-# Translation uses LibreTranslate automatically
+# Translation uses Google Translate automatically
 ```
 
 ### **Production Setup (Dev Client)**
@@ -143,7 +143,7 @@ eas build --profile development --platform android
 Your PolyBook app now has **best-in-class translation** that adapts to any environment:
 
 - 🚀 **2-4x Faster**: Native ML Kit vs previous WebView WASM
-- 🌐 **Instant Development**: LibreTranslate works immediately in Expo Go  
+- 🌐 **Instant Development**: Google Translate works immediately in Expo Go  
 - 📱 **Production Ready**: Google ML Kit for offline native performance
 - 🔒 **Privacy First**: True on-device processing in production
 - 🧹 **Zero Complexity**: No more WebView or file:// debugging

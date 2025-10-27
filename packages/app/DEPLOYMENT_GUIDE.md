@@ -3,11 +3,12 @@
 
 ## Frontend Testing
 
-### 1. Expo Go (Online Translation)
+### 1. Expo Go (Google Translate Online - Development Only)
 ```bash
 npx expo start
 # Scan QR code with Expo Go app
-# Tests online Google Translate service
+# Tests Google Translate online service for development
+# Note: Online service is NEVER used in production
 ```
 
 ### 2. Development Client (ML Kit)
@@ -26,11 +27,12 @@ npx expo start --dev-client
 
 ## Testing Checklist
 
-### Online Service (Expo Go)
+### Google Translate Service (Expo Go - Development Only)
 - [ ] Translation service loads correctly
 - [ ] Google Translate API works
 - [ ] Performance test shows ~150ms average
 - [ ] Fallback to mock works if API fails
+- [ ] Online service disabled in production builds
 
 ### ML Kit Service (Dev Client)
 - [ ] ML Kit native module detected
@@ -54,9 +56,10 @@ npx expo start --dev-client
 
 ### Common Issues
 1. **ML Kit not available**: Ensure using dev client, not Expo Go
-2. **Translation fails**: Check network for online, model download for ML Kit
+2. **Translation fails**: Check network for Google Translate, model download for ML Kit
 3. **Dictionary lookup fails**: Verify SQLite files in assets/dictionaries/
 4. **Build fails**: Check EAS configuration and native module setup
+5. **Online service in production**: Google Translate is development-only, production uses ML Kit
 
 ### Debug Tools
 - Console logs for translation services

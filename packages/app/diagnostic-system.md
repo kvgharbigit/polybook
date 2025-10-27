@@ -65,12 +65,12 @@ node dev-deployment-readiness.js
 
 ### **Service-Level Logging**
 ```typescript
-// Translation Service
+// Google Translate Service (Expo Go only)
 🌐 Google Translate: "Hello" (en → es)
 ✅ Google Translate result: "Hola" (142ms)
 ❌ Google Translate failed: Network timeout
 
-// ML Kit Service  
+// ML Kit Service (Development Client only)
 📱 ML Kit: "Hello" (en → es)
 ✅ ML Kit result: "Hola" (67ms)
 ❌ ML Kit not available - ensure dev client
@@ -86,8 +86,9 @@ node dev-deployment-readiness.js
 
 ### **Environment Detection Logging**
 ```typescript
-🎯 Environment: Expo Go detected → Online service
-🎯 Environment: Dev Client detected → ML Kit service
+🎯 Environment: Expo Go detected → Google Translate online service
+🎯 Environment: Dev Client detected → ML Kit native service
+🎯 Environment: Production build → ML Kit only (no online fallback)
 ```
 
 ---
@@ -98,9 +99,10 @@ node dev-deployment-readiness.js
 
 #### **"ML Kit not available"**
 ```
-ROOT CAUSE: Using Expo Go instead of Dev Client
-SOLUTION: Build and use development client
-COMMAND: eas build --profile development
+ROOT CAUSE: Using Expo Go instead of Development Client
+SOLUTION: Build and use development client with ML Kit native modules
+COMMAND: eas build --profile development --platform ios/android
+NOTE: Expo Go uses Google Translate online service for development only
 ```
 
 #### **"Translation timeout"**
@@ -168,8 +170,9 @@ SOLUTIONS:
 ### **Translation Not Working**
 ```
 1. Check environment:
-   - Expo Go → Should use online service
-   - Dev Client → Should use ML Kit
+   - Expo Go → Should use Google Translate online service
+   - Dev Client → Should use ML Kit native service
+   - Production → ML Kit only (no online fallback)
 
 2. Run diagnostic script:
    node test-mlkit-integration.js
@@ -180,7 +183,7 @@ SOLUTIONS:
    - Error messages
 
 4. Test specific component:
-   Settings → ML Kit Translation Test
+   Settings → Translation Performance Test
 ```
 
 ### **Performance Issues**

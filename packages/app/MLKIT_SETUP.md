@@ -4,7 +4,7 @@ This guide shows how to replace Bergamot WASM with native ML Kit translation in 
 
 ## 🎯 What You Get
 
-- **Expo Go**: Online translation via LibreTranslate (instant setup)
+- **Expo Go**: Online translation via Google Translate (instant setup)
 - **Dev Client/Release**: ML Kit offline translation (native performance)
 - **Same API**: Drop-in replacement for existing BergamotService
 
@@ -82,7 +82,7 @@ const { text } = await Translation.translate('Hello world', {
 ```bash
 npx expo start
 ```
-- Should use LibreTranslate for translations
+- Should use Google Translate for translations
 - No model downloads needed
 
 ### Dev Client (Offline)
@@ -138,7 +138,7 @@ ML Kit supports 58+ languages including:
 - **Quality**: High (Google's production models)
 - **Offline**: ✅ Fully offline after download
 
-### LibreTranslate (Expo Go)
+### Google Translate (Expo Go)
 - **Speed**: ~500-1500ms per sentence  
 - **Data Usage**: ~1-5KB per translation
 - **Quality**: Good (open source models)
