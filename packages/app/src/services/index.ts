@@ -18,6 +18,6 @@ export const getServiceInfo = () => ({
   engine: isExpoGo ? 'online' : 'mlkit',
   isExpoGo,
   description: isExpoGo 
-    ? 'LibreTranslate (free online service)'
+    ? 'Google Translate (free unofficial API for dev only)'
     : 'ML Kit on-device translation'
 });

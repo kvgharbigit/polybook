@@ -396,6 +396,8 @@ export class LanguagePackService {
           }
         } catch (validationError) {
           console.error(`📦 Database validation error:`, validationError);
+          // Don't throw here - validation is optional, just log the warning
+          console.warn(`📦 Warning: Database validation failed, but installation will continue`);
         }
         
       } catch (extractError) {

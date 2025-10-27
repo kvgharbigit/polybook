@@ -60,14 +60,18 @@ export default function TranslationPerfHarness() {
       
       for (let i = 0; i < TEST_SENTENCES.length; i++) {
         const sentence = TEST_SENTENCES[i];
-        addLog(`Translating sentence ${i + 1}/${TEST_SENTENCES.length}...`, 'info');
+        const sourceLanguage = 'en';
+        const targetLanguage = 'es';
+        
+        addLog(`Translating sentence ${i + 1}/${TEST_SENTENCES.length} (${sourceLanguage} → ${targetLanguage})...`, 'info');
+        addLog(`Source: "${sentence}"`, 'info');
         
         const startTime = Date.now();
         
         try {
           const result = await Translation.translate(
             sentence, 
-            { from: 'en', to: 'es', timeoutMs: 8000 }
+            { from: sourceLanguage, to: targetLanguage, timeoutMs: 8000 }
           );
           
           const endTime = Date.now();
@@ -75,14 +79,14 @@ export default function TranslationPerfHarness() {
           times.push(duration);
           
           if (result.text) {
-            addLog(`✅ ${duration}ms → "${result.text}"`, 'success');
+            addLog(`✅ ${duration}ms (${sourceLanguage}→${targetLanguage}) → "${result.text}"`, 'success');
           } else {
-            addLog(`❌ ${duration}ms → No translation returned`, 'error');
+            addLog(`❌ ${duration}ms (${sourceLanguage}→${targetLanguage}) → No translation returned`, 'error');
           }
         } catch (error) {
           const endTime = Date.now();
           const duration = endTime - startTime;
-          addLog(`❌ ${duration}ms → Exception: ${error}`, 'error');
+          addLog(`❌ ${duration}ms (${sourceLanguage}→${targetLanguage}) → Exception: ${error}`, 'error');
         }
       }
 
@@ -115,15 +119,26 @@ export default function TranslationPerfHarness() {
       
       try {
         // Batch translation - simulate with individual calls
-        const batchResults = await Promise.all(TEST_SENTENCES.map(sentence => 
-          Translation.translate(sentence, { from: 'en', to: 'es' })
-        ));
+        addLog('Testing batch translation (en → es)...', 'info');
+        const batchResults = await Promise.all(TEST_SENTENCES.map((sentence, idx) => {
+          addLog(`Batch ${idx + 1}: "${sentence.substring(0, 30)}..."`, 'info');
+          return Translation.translate(sentence, { from: 'en', to: 'es' });
+        }));
         
         const batchEnd = Date.now();
         const batchDuration = batchEnd - batchStart;
         
         const successCount = batchResults.filter(r => r.text).length;
-        addLog(`✅ Batch completed: ${successCount}/${batchResults.length} successful in ${batchDuration}ms`, 'success');
+        addLog(`✅ Batch completed (en→es): ${successCount}/${batchResults.length} successful in ${batchDuration}ms`, 'success');
+        
+        // Log batch results
+        batchResults.forEach((result, idx) => {
+          if (result.text) {
+            addLog(`  Batch ${idx + 1}: "${result.text}"`, 'success');
+          } else {
+            addLog(`  Batch ${idx + 1}: Failed`, 'error');
+          }
+        });
       } catch (error) {
         const batchEnd = Date.now();
         const batchDuration = batchEnd - batchStart;
@@ -150,10 +165,13 @@ export default function TranslationPerfHarness() {
       const promises = [];
       
       // Create 20 concurrent translation requests
+      addLog('Creating 20 concurrent requests (en → es)...', 'info');
       for (let i = 0; i < 20; i++) {
         const sentence = TEST_SENTENCES[i % TEST_SENTENCES.length];
+        const testText = `${sentence} (request ${i + 1})`;
+        addLog(`Request ${i + 1}: "${testText.substring(0, 40)}..."`, 'info');
         const promise = Translation.translate(
-          `${sentence} (request ${i + 1})`,
+          testText,
           { from: 'en', to: 'es', timeoutMs: 10000 }
         );
         promises.push(promise);

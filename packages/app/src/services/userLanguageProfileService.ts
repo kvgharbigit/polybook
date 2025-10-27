@@ -208,6 +208,13 @@ export class UserLanguageProfileService {
   }
 
   /**
+   * Get default profile (useful for fallbacks)
+   */
+  static getDefaultProfile(): UserLanguageProfile {
+    return this.createDefaultProfile();
+  }
+
+  /**
    * Get language display name
    */
   static getLanguageDisplayName(languageCode: string, displayInLanguage?: string): string {

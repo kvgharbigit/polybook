@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useReducer, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Modal, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Modal, FlatList, InteractionManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '../navigation/SimpleNavigator';
 import { useAppStore } from '../store/appStore';
@@ -17,20 +17,38 @@ import { useTheme } from '../hooks/useTheme';
 import { useFont } from '../hooks/useFont';
 import { useTTSHighlight } from '../hooks/useTTSHighlight';
 import { Chapter } from '../services/contentParser';
+import UserLanguageProfileService from '../services/userLanguageProfileService';
 
 function ReaderScreen() {
   console.log('🔵 ReaderScreen: Component mounting/re-rendering');
   
-  const { navigationState, goBack } = useNavigation();
+  const { navigationState, goBack, navigate } = useNavigation();
   const { id } = navigationState.params || { id: '1' };
   const { theme, setTheme, currentThemeName, availableThemes } = useTheme();
   const { 
-    userLanguageProfile,
     addBookmark,
     getBookmarks,
   } = useAppStore();
   
-  console.log('🔵 ReaderScreen: userLanguageProfile from store:', userLanguageProfile);
+  // User language profile state
+  const [userLanguageProfile, setUserLanguageProfile] = useState(null);
+  
+  // Load user language profile on mount
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const profile = await UserLanguageProfileService.getUserProfile();
+        setUserLanguageProfile(profile);
+        console.log('🔵 ReaderScreen: Loaded user profile:', profile);
+      } catch (error) {
+        console.error('🔵 ReaderScreen: Failed to load user profile:', error);
+      }
+    };
+    
+    loadUserProfile();
+  }, []);
+  
+  console.log('🔵 ReaderScreen: userLanguageProfile from service:', userLanguageProfile);
   const { settings: fontSettings, increaseFontSize, decreaseFontSize, textStyles: rawTextStyles } = useFont();
   
   // Memoize textStyles to prevent ReaderScreen re-renders on font changes
@@ -140,8 +158,8 @@ function ReaderScreen() {
         setIsChunkingLargeDocument(true);
         
         try {
-          // Defer to next tick to avoid blocking render
-          await new Promise(resolve => setTimeout(resolve, 0));
+          // Wait for interactions to complete before heavy processing
+          await new Promise(resolve => InteractionManager.runAfterInteractions(resolve));
           
           const chunks = ContentParser.splitIntoChunks(content, 15000);
           console.log(`📚 ReaderScreen: Split into ${chunks.length} chunks`);
@@ -716,10 +734,7 @@ function ReaderScreen() {
         visible={showWordPopup}
         onClose={handleCloseWordPopup}
         position={wordPopupPosition}
-        userProfile={userLanguageProfile || {
-          nativeLanguage: 'es', // Default to Spanish since user said they set it to Español
-          targetLanguages: ['en'],
-        }}
+        userProfile={userLanguageProfile || UserLanguageProfileService.getDefaultProfile()}
         onSaveWord={handleSaveWord}
         onNavigateToLanguagePacks={() => navigate('LanguagePacksScreen')}
         sentenceContext={sentenceContext}

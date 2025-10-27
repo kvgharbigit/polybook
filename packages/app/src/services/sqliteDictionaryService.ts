@@ -18,6 +18,7 @@ import { ErrorHandler, ErrorCode, Validator } from './errorHandling';
 export class SQLiteDictionaryService {
   private static initialized = false;
   private static initializationError: any = null;
+  private static initializationPromise: Promise<void> | null = null;
   private static databases: Map<string, any> = new Map();
 
   /**
@@ -31,6 +32,23 @@ export class SQLiteDictionaryService {
       return;
     }
 
+    // Check if initialization is already in progress
+    if (this.initializationPromise) {
+      console.debug('📚 SQLiteDictionaryService: Initialization in progress, waiting...');
+      return this.initializationPromise;
+    }
+
+    // Start initialization
+    this.initializationPromise = this._doInitialize(userLanguages);
+    
+    try {
+      await this.initializationPromise;
+    } finally {
+      this.initializationPromise = null;
+    }
+  }
+
+  private static async _doInitialize(userLanguages?: string[]): Promise<void> {
     try {
       console.log('📚 SQLiteDictionaryService: Starting initialization...');
       
