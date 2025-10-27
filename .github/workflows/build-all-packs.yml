@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        pair: [eng-spa, spa-eng, eng-fra, fra-eng, eng-deu, deu-eng, eng-ita, ita-eng, eng-por, por-eng, eng-rus, rus-eng]  # TOP 7 LANGUAGES OPTIMAL STRATEGY
+        pair: [eng-spa, spa-eng]  # Focus on Spanish-English for testing
     
     steps:
     - uses: actions/checkout@v4
@@ -34,56 +34,11 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.pair }}
-        path: tools/../dist/packs/${{ matrix.pair }}.*
+        path: dist/packs/${{ matrix.pair }}.*
 
-  build-monolingual:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        lang: [en]  # Only English monolingual exists - others covered by bilingual strategy
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y python3-pip sqlite3 curl wget
-        pip3 install pyglossary wiktextract tqdm lxml
-    
-    - name: Build monolingual pack
-      run: |
-        cd tools
-        ./build-wiktionary-pack.sh ${{ matrix.lang }}
-    
-    - name: Upload pack artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: wiktionary-${{ matrix.lang }}
-        path: tools/../dist/packs/wiktionary-${{ matrix.lang }}.*
-
-  build-bergamot:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        direction: [en-es, es-en, en-fr, fr-en, en-de, de-en]
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Build Bergamot pack
-      run: |
-        cd tools
-        ./build-bergamot-pack.sh ${{ matrix.direction }}
-    
-    - name: Upload pack artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: bergamot-${{ matrix.direction }}
-        path: tools/../dist/packs/bergamot-${{ matrix.direction }}.*
 
   publish-release:
-    needs: [build-bilingual, build-monolingual, build-bergamot]
+    needs: [build-bilingual]
     runs-on: ubuntu-latest
     
     steps:
