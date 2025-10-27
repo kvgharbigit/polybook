@@ -107,7 +107,7 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
     sourceLanguage: 'es',
     targetLanguage: 'en',
     totalSize: 5090394, // Real database ZIP size (5MB)
-    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/latest/download/es-en-full.sqlite.zip',
+    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/download/packs-21/es-en-full.sqlite.zip',
     checksum: 'real_database_checksum_here',
     dictionary: {
       filename: 'es-en.sqlite',
@@ -236,7 +236,7 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
     sourceLanguage: 'ko',
     targetLanguage: 'en',
     totalSize: 2167218, // 2.1MB
-    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/latest/download/ko-en.sqlite.zip',
+    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/download/packs-21/ko-en.sqlite.zip',
     checksum: 'korean_database_checksum_here',
     dictionary: {
       filename: 'ko-en.sqlite',
@@ -279,7 +279,7 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
     sourceLanguage: 'ar',
     targetLanguage: 'en',
     totalSize: 2982353, // 2.9MB
-    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/latest/download/ar-en.sqlite.zip',
+    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/download/packs-21/ar-en.sqlite.zip',
     checksum: 'arabic_database_checksum_here',
     dictionary: {
       filename: 'ar-en.sqlite',
@@ -322,7 +322,7 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
     sourceLanguage: 'hi',
     targetLanguage: 'en',
     totalSize: 1059616, // 1.0MB
-    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/latest/download/hi-en.sqlite.zip',
+    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/download/packs-21/hi-en.sqlite.zip',
     checksum: 'hindi_database_checksum_here',
     dictionary: {
       filename: 'hi-en.sqlite',
