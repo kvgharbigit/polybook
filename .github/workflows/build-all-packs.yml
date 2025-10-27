@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        pair: [eng-spa, spa-eng]  # Focus on Spanish-English for testing
+        pair: [eng-spa]  # Test with just one direction for speed
     
     steps:
     - uses: actions/checkout@v4
@@ -91,17 +91,7 @@ jobs:
           Complete offline dictionary pack collection
           
           **BILINGUAL DICTIONARIES:**
-          - eng-spa/spa-eng (4.6MB Wiktionary): English ↔ Spanish - 43K+ entries
-          - eng-chn/chn-eng (4.6MB Wiktionary): English ↔ Mandarin - Full support
-          
-          **ADDITIONAL SUPPORTED LANGUAGES:**
-          - eng-fra/fra-eng (3.2MB Wiktionary): English ↔ French
-          - eng-deu/deu-eng (6.9MB Wiktionary): English ↔ German
-          - eng-ita/ita-eng (5.3MB Wiktionary): Italian ↔ English
-          - eng-por/por-eng (2.6MB Wiktionary): English ↔ Portuguese
-          - eng-rus/rus-eng (4.2MB Wiktionary): English ↔ Russian
-          - eng-kor/kor-eng (2.1MB Wiktionary): English ↔ Korean
-          - eng-jpn/jpn-eng (5.9MB Wiktionary): English ↔ Japanese
+          - eng-spa (4.6MB Wiktionary): English → Spanish - 43K+ entries
           
           Built from: Wiktionary-Dictionaries ${{ github.sha }}
         files: |
