@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        pair: [eng-spa]  # Test with just one direction for speed
+        pair: [eng-spa, spa-eng]  # Both directions for complete support
     
     steps:
     - uses: actions/checkout@v4
@@ -92,6 +92,7 @@ jobs:
           
           **BILINGUAL DICTIONARIES:**
           - eng-spa (4.6MB Wiktionary): English → Spanish - 43K+ entries
+          - spa-eng (4.6MB Wiktionary): Spanish → English - 43K+ entries
           
           Built from: Wiktionary-Dictionaries ${{ github.sha }}
         files: |
