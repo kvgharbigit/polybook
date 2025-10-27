@@ -70,11 +70,23 @@ get_optimal_source() {
             SIZE="2.1MB"
             REASON="Wiktionary bilingual - rich definitions, examples, IPA, bidirectional"
             ;;
+        "ar-en"|"en-ar"|"ara-eng"|"eng-ara")
+            SOURCE="wiktionary"
+            URL="https://raw.githubusercontent.com/Vuizur/Wiktionary-Dictionaries/master/Arabic-English%20Wiktionary%20dictionary%20stardict.tar.gz"
+            SIZE="2.9MB"
+            REASON="Wiktionary bilingual - rich definitions, examples, IPA, bidirectional"
+            ;;
+        "hi-en"|"en-hi"|"hin-eng"|"eng-hin")
+            SOURCE="wiktionary"
+            URL="https://raw.githubusercontent.com/Vuizur/Wiktionary-Dictionaries/master/Hindi-English%20Wiktionary%20dictionary%20stardict.tar.gz"
+            SIZE="1.0MB"
+            REASON="Wiktionary bilingual - rich definitions, examples, IPA, bidirectional"
+            ;;
         *)
             echo "❌ Unknown language pair: $PAIR"
-            echo "🎯 SUPPORTED TOP 10 LANGUAGE PAIRS (Wiktionary verified):"
-            echo "   ✅ English ↔ Spanish, French, German, Italian, Portuguese, Russian"
-            echo "   ✅ English ↔ Chinese, Japanese, Korean"
+            echo "🎯 SUPPORTED LANGUAGE PAIRS (Wiktionary verified):"
+            echo "   ✅ English ↔ Spanish, French, German, Japanese, Korean"
+            echo "   ✅ English ↔ Arabic, Hindi"
             echo "   📝 All sources verified and functional from Vuizur/Wiktionary-Dictionaries"
             exit 1
             ;;
