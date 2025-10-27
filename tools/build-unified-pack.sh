@@ -2,8 +2,9 @@
 set -euo pipefail
 
 PAIR="${1:?usage: build-unified-pack.sh eng-spa|spa-eng|eng-fra|...}"
-OUT_DIR="./dist/packs"
-WORK_DIR="tmp-unified-${PAIR}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+OUT_DIR="$SCRIPT_DIR/dist/packs"
+WORK_DIR="$SCRIPT_DIR/tmp-unified-${PAIR}"
 mkdir -p "$OUT_DIR" "$WORK_DIR"
 
 echo "🔧 Building unified dictionary pack: $PAIR"
