@@ -111,10 +111,10 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
     downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/download/v1.0.0/es-en-full.sqlite.zip',
     checksum: 'real_database_checksum_here',
     dictionary: {
-      filename: 'spa-eng.sqlite', // Actual filename in the ZIP
-      size: 14680064, // Expected real SQLite database size
+      filename: 'es-en.sqlite', // Actual filename in the ZIP (verified)
+      size: 24858624, // Actual uncompressed SQLite size (24.8MB)
       checksum: 'real_database_checksum_here',
-      entries: 43638, // Full dictionary entries from real build
+      entries: 43638, // Verified: Real dictionary entries
       source: 'wiktionary'
     },
     mlKitSupport: {
