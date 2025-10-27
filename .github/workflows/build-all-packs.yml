@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        pair: [eng-spa, spa-eng, eng-chn, chn-eng]  # Spanish and Chinese support
+        pair: [eng-spa, spa-eng]  # Focus on Spanish-English for testing
     
     steps:
     - uses: actions/checkout@v4
