@@ -34,7 +34,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.pair }}
-        path: dist/packs/${{ matrix.pair }}.*
+        path: tools/dist/packs/${{ matrix.pair }}.*
 
 
   publish-release:
