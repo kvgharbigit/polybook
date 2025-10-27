@@ -312,6 +312,14 @@ SELECT w as lemma, m as def FROM word
 WHERE w IS NOT NULL AND m IS NOT NULL 
   AND LENGTH(TRIM(w)) > 0 AND LENGTH(TRIM(m)) > 0;
 
+-- Also include alternate word forms pointing to definitions
+INSERT OR IGNORE INTO dict (lemma, def)
+SELECT alt.w as lemma, word.m as def 
+FROM alt 
+JOIN word ON alt.id = word.id
+WHERE alt.w IS NOT NULL AND word.m IS NOT NULL 
+  AND LENGTH(TRIM(alt.w)) > 0 AND LENGTH(TRIM(word.m)) > 0;
+
 -- Drop the old tables
 DROP TABLE word;
 DROP TABLE IF EXISTS dbinfo;
@@ -324,13 +332,17 @@ VACUUM;
 ANALYZE;
 SQL
 
-# Get final stats with validation
-BEFORE_COUNT=$(sqlite3 "${PAIR}.sqlite" "SELECT COUNT(*) FROM word;" 2>/dev/null || echo "0")
+# Get final stats with validation  
+WORD_COUNT=$(sqlite3 "${PAIR}.sqlite" "SELECT COUNT(*) FROM word;" 2>/dev/null || echo "0")
+ALT_COUNT=$(sqlite3 "${PAIR}.sqlite" "SELECT COUNT(*) FROM alt;" 2>/dev/null || echo "0")
+BEFORE_COUNT=$((WORD_COUNT + ALT_COUNT))
 FINAL_COUNT=$(sqlite3 "${PAIR}.sqlite" "SELECT COUNT(*) FROM dict;")
 
 echo "📊 Dictionary conversion results:"
-echo "   Before: $BEFORE_COUNT entries (word table)"
-echo "   After:  $FINAL_COUNT entries (dict table)"
+echo "   Word entries: $WORD_COUNT"
+echo "   Alt entries:  $ALT_COUNT" 
+echo "   Total before: $BEFORE_COUNT entries (word + alt tables)"
+echo "   Final dict:   $FINAL_COUNT entries"
 
 # Validate data integrity (allow for some deduplication but not massive loss)
 if [[ $BEFORE_COUNT -gt 0 ]] && [[ $FINAL_COUNT -lt $((BEFORE_COUNT * 80 / 100)) ]]; then
