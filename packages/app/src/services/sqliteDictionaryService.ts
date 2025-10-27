@@ -12,7 +12,14 @@ import { ErrorHandler, ErrorCode, Validator } from './errorHandling';
 /**
  * SQLite Dictionary Service
  * 
- * Implements offline bilingual dictionary using StarDict → SQLite databases
+ * Implements offline bilingual dictionary using downloaded language pack databases
+ * Supports consistent lookup across all languages with multiple database schemas:
+ * 
+ * Database Schema (Language Packs):
+ * - word table: id INTEGER PRIMARY KEY, w TEXT, m TEXT (PyGlossary format)
+ * - dict table: lemma TEXT PRIMARY KEY, def TEXT NOT NULL (StarDict format)
+ * - Both tables contain HTML-formatted definitions with embedded synonyms/examples
+ * 
  * Supports consistent lookup across all languages with StarDict bilingual dictionaries
  */
 export class SQLiteDictionaryService {
@@ -215,22 +222,15 @@ export class SQLiteDictionaryService {
               console.log(`📖 Opening database: ${dbName}`);
               const db = await SQLite.openDatabaseAsync(dbName);
               
-              // Store under the current language
-              this.databases.set(lang, db);
-              
-              // Also store under bilingual keys for cross-language lookup
+              // Store under the correct directional key (primary storage)
               const { sourceLanguage, targetLanguage } = languagePack.manifest;
-              const bilingualKey = `${sourceLanguage}-${targetLanguage}`;
-              const reverseKey = `${targetLanguage}-${sourceLanguage}`;
+              const directionalKey = `${sourceLanguage}-${targetLanguage}`;
               
-              if (!this.databases.has(bilingualKey)) {
-                this.databases.set(bilingualKey, db);
-                console.log(`📖 ✅ Stored bilingual dictionary: ${bilingualKey}`);
-              }
-              if (!this.databases.has(reverseKey)) {
-                this.databases.set(reverseKey, db);
-                console.log(`📖 ✅ Stored bilingual dictionary: ${reverseKey}`);
-              }
+              this.databases.set(directionalKey, db);
+              console.log(`📖 ✅ Stored directional dictionary: ${directionalKey} (${sourceLanguage} → ${targetLanguage})`);
+              
+              // Also store under individual language codes for backwards compatibility
+              this.databases.set(lang, db);
               
               console.log(`📖 ✅ Opened Language Pack dictionary: ${lang} (${languagePack.manifest.dictionary.entries} entries)`);
               continue;
@@ -271,6 +271,37 @@ export class SQLiteDictionaryService {
     console.log(`📚 Total databases opened: ${this.databases.size}`);
   }
 
+  /**
+   * Open all available dictionaries from installed language packs
+   */
+  private static async openAvailableDictionaries(): Promise<void> {
+    try {
+      console.log('📚 Opening all available dictionaries...');
+      const installedPacks = await LanguagePackService.getInstalledPacks();
+      console.log(`📚 Found ${installedPacks.length} installed language packs`);
+      
+      if (installedPacks.length === 0) {
+        console.log('📚 No language packs installed, using fallback dictionaries');
+        // Open basic fallback dictionaries for common languages
+        await this.openDictionariesForLanguages(['en', 'es', 'fr', 'de']);
+        return;
+      }
+      
+      // Collect all languages from installed packs
+      const languages = new Set<string>();
+      for (const pack of installedPacks) {
+        languages.add(pack.manifest.sourceLanguage);
+        languages.add(pack.manifest.targetLanguage);
+      }
+      
+      console.log(`📚 Opening dictionaries for languages: ${Array.from(languages).join(', ')}`);
+      await this.openDictionariesForLanguages(Array.from(languages));
+    } catch (error) {
+      console.error('📚 Error opening available dictionaries:', error);
+      // Fallback to basic languages
+      await this.openDictionariesForLanguages(['en', 'es']);
+    }
+  }
 
   /**
    * Create in-memory fallback database with basic dictionary data
@@ -425,32 +456,58 @@ export class SQLiteDictionaryService {
     }
 
     try {
+      console.log('📚 ===== LOOKUP FLOW START =====');
       const { word, userProfile } = request;
+      console.log(`📚 Step 1: Input word: "${word}"`);
+      console.log(`📚 Step 1: User profile:`, {
+        nativeLanguage: userProfile.nativeLanguage,
+        targetLanguages: userProfile.targetLanguages,
+        defaultDictionaryMode: userProfile.defaultDictionaryMode
+      });
       
       // Validate input
+      console.log(`📚 Step 2: Validating input...`);
       if (!word || typeof word !== 'string') {
+        console.error(`📚 Step 2: ❌ Invalid word: ${word} (type: ${typeof word})`);
         throw new Error('Invalid word provided for lookup');
       }
+      console.log(`📚 Step 2: ✅ Word is valid string`);
       
+      console.log(`📚 Step 3: Sanitizing word...`);
       const sanitizedWord = Validator.sanitizeWordForLookup(word);
+      console.log(`📚 Step 3: Sanitized word: "${sanitizedWord}"`);
       if (!sanitizedWord) {
+        console.error(`📚 Step 3: ❌ Word contains only invalid characters`);
         throw new Error('Word contains only invalid characters');
       }
+      console.log(`📚 Step 3: ✅ Word sanitized successfully`);
       
+      console.log(`📚 Step 4: Normalizing word...`);
       const normalizedWord = sanitizedWord.toLowerCase().trim();
+      console.log(`📚 Step 4: Normalized word: "${normalizedWord}"`);
       
       // Detect source language first
+      console.log(`📚 Step 5: Detecting source language...`);
       const sourceLanguage = await this.detectLanguage(word);
+      console.log(`📚 Step 5: Detected source language: ${sourceLanguage}`);
+      
+      console.log(`📚 Step 6: Checking if translation needed...`);
       const needsTranslation = sourceLanguage !== userProfile.nativeLanguage;
+      console.log(`📚 Step 6: Source: ${sourceLanguage}, Native: ${userProfile.nativeLanguage}, Needs translation: ${needsTranslation}`);
       
       // Check if we have the required languages
+      console.log(`📚 Step 7: Determining required languages...`);
       const requiredLanguages = needsTranslation 
         ? [sourceLanguage, userProfile.nativeLanguage]
         : [userProfile.nativeLanguage];
+      console.log(`📚 Step 7: Required languages: ${requiredLanguages.join(', ')}`);
       
+      console.log(`📚 Step 8: Checking for missing languages...`);
       const missingLanguages = await this.checkMissingLanguages(requiredLanguages);
+      console.log(`📚 Step 8: Missing languages: ${missingLanguages.length > 0 ? missingLanguages.join(', ') : 'none'}`);
       
       if (missingLanguages.length > 0) {
+        console.log(`📚 Step 8: ❌ Missing languages detected!`);
         const languageNames = missingLanguages.map(lang => 
           lang === 'en' ? 'English' :
           lang === 'es' ? 'Spanish' :
@@ -459,8 +516,9 @@ export class SQLiteDictionaryService {
           lang === 'it' ? 'Italian' :
           lang === 'pt' ? 'Portuguese' : lang
         ).join(', ');
+        console.log(`📚 Step 8: Missing language names: ${languageNames}`);
         
-        return {
+        const errorResult = {
           success: false,
           word,
           sourceLanguage,
@@ -468,17 +526,31 @@ export class SQLiteDictionaryService {
           missingLanguages,
           requiredLanguages
         };
+        console.log(`📚 ===== LOOKUP FLOW END (MISSING LANGUAGES) =====`);
+        return errorResult;
       }
+      console.log(`📚 Step 8: ✅ All required languages available`);
       
       // Ensure we have the necessary languages available
+      console.log(`📚 Step 9: Ensuring languages are available...`);
       await this.ensureLanguagesAvailable(requiredLanguages);
+      console.log(`📚 Step 9: ✅ Languages ensured`);
       
-      console.log(`📚 Looking up "${word}" for ${userProfile.nativeLanguage} user`);
+      console.log(`📚 Step 10: Determining lookup strategy...`);
+      console.log(`📚 Step 10: needsTranslation: ${needsTranslation}, sourceLanguage: ${sourceLanguage}`);
 
       if (needsTranslation) {
-        return await this.performCrossLanguageLookup(normalizedWord, sourceLanguage, userProfile);
+        console.log(`📚 Step 10: ✅ Using cross-language lookup`);
+        console.log(`📚 ===== STARTING CROSS-LANGUAGE LOOKUP =====`);
+        const result = await this.performCrossLanguageLookup(normalizedWord, sourceLanguage, userProfile);
+        console.log(`📚 ===== CROSS-LANGUAGE LOOKUP RESULT =====`, result);
+        return result;
       } else {
-        return await this.performNativeLanguageLookup(normalizedWord, userProfile);
+        console.log(`📚 Step 10: ✅ Using native language lookup`);
+        console.log(`📚 ===== STARTING NATIVE LANGUAGE LOOKUP =====`);
+        const result = await this.performNativeLanguageLookup(normalizedWord, userProfile);
+        console.log(`📚 ===== NATIVE LANGUAGE LOOKUP RESULT =====`, result);
+        return result;
       }
 
     } catch (error) {
@@ -503,42 +575,111 @@ export class SQLiteDictionaryService {
   ): Promise<DictionaryLookupResponse> {
     
     try {
-      console.log(`🔄 Cross-language lookup: ${word} (${sourceLanguage} → ${userProfile.nativeLanguage})`);
+      console.log(`🔄 ===== CROSS-LANGUAGE LOOKUP START =====`);
+      console.log(`🔄 Word: "${word}"`);
+      console.log(`🔄 Source Language: ${sourceLanguage}`);
+      console.log(`🔄 Target Language: ${userProfile.nativeLanguage}`);
       
       // Step 1: Look up word in bilingual StarDict dictionary to get translation
+      console.log(`🔄 Step 1: Starting bilingual dictionary translation...`);
       const translation = await this.translateWordUsingStarDict(word, sourceLanguage, userProfile.nativeLanguage);
+      console.log(`🔄 Step 1 Result: Translation = "${translation}"`);
       
       if (!translation) {
-        return {
+        console.log(`🔄 Step 1: ❌ No translation found in bilingual dictionary`);
+        
+        // Fallback: Provide a basic translation for common function words
+        const commonTranslations: Record<string, string> = {
+          'the': 'el/la/los/las',
+          'a': 'un/una',
+          'an': 'un/una', 
+          'and': 'y',
+          'or': 'o',
+          'of': 'de',
+          'in': 'en',
+          'on': 'en/sobre',
+          'at': 'en',
+          'to': 'a/hacia',
+          'for': 'para/por',
+          'with': 'con',
+          'by': 'por',
+          'is': 'es/está',
+          'are': 'son/están',
+          'was': 'era/estaba',
+          'were': 'eran/estaban'
+        };
+        
+        const fallbackTranslation = commonTranslations[word.toLowerCase()];
+        if (fallbackTranslation) {
+          console.log(`🔄 Step 1: ✅ Using fallback translation: "${word}" → "${fallbackTranslation}"`);
+          
+          const bilingualDefinition = {
+            word,
+            language: sourceLanguage,
+            translations: [fallbackTranslation],
+            definitions: [{
+              partOfSpeech: 'function word',
+              definition: `Common ${sourceLanguage === 'en' ? 'English' : 'Spanish'} function word`,
+              definitionLanguage: userProfile.nativeLanguage,
+              synonyms: []
+            }],
+            frequency: 10000, // Very high frequency
+            difficulty: 'beginner'
+          };
+
+          const result = {
+            success: true,
+            word,
+            sourceLanguage,
+            primaryDefinition: bilingualDefinition
+          };
+          console.log(`🔄 ===== CROSS-LANGUAGE LOOKUP END (FALLBACK SUCCESS) =====`);
+          return result;
+        }
+        
+        const errorResult = {
           success: false,
           word,
           sourceLanguage,
           error: `No translation found for "${word}" in ${sourceLanguage}-${userProfile.nativeLanguage} dictionary`
         };
+        console.log(`🔄 ===== CROSS-LANGUAGE LOOKUP END (NO TRANSLATION) =====`);
+        return errorResult;
       }
       
-      console.log(`📖 StarDict translation: "${word}" → "${translation}"`);
+      console.log(`🔄 Step 1: ✅ Translation found: "${word}" → "${translation}"`);
       
       // Step 2: Get source language data (definitions/synonyms in original language)
+      console.log(`🔄 Step 2: Looking up source language data for "${word}" in ${sourceLanguage}...`);
       const sourceData = await this.lookupInDatabase(word, sourceLanguage);
+      console.log(`🔄 Step 2 Result:`, sourceData);
       
       // Step 3: Get target language data (definitions/synonyms in user's language)
+      console.log(`🔄 Step 3: Looking up target language data for "${translation}" in ${userProfile.nativeLanguage}...`);
       const targetData = await this.lookupInDatabase(translation, userProfile.nativeLanguage);
+      console.log(`🔄 Step 3 Result:`, targetData);
       
       // Step 4: Generate examples and build rich bilingual definition
+      console.log(`🔄 Step 4: Generating examples...`);
       const examples = this.generateExamples(word, translation, sourceLanguage, userProfile.nativeLanguage);
+      console.log(`🔄 Step 4 Result:`, examples);
       
+      console.log(`🔄 Step 5: Building bilingual definition...`);
       const bilingualDefinition = this.buildBilingualDefinition(
         word, translation, sourceLanguage, userProfile.nativeLanguage,
-        sourceData, targetData, examples
+        translation, examples
       );
+      console.log(`🔄 Step 5 Result:`, bilingualDefinition);
 
-      return {
+      const finalResult = {
         success: true,
         word,
         sourceLanguage,
         primaryDefinition: bilingualDefinition
       };
+      console.log(`🔄 ===== CROSS-LANGUAGE LOOKUP END (SUCCESS) =====`);
+      console.log(`🔄 Final Result:`, finalResult);
+      return finalResult;
 
     } catch (error) {
       console.error(`Cross-language lookup failed for "${word}":`, error);
@@ -628,15 +769,18 @@ export class SQLiteDictionaryService {
           examples: this.extractExamplesFromDefinition(definition)
         };
       } else {
-        // Fallback to original StarDict format if PyGlossary lookup fails
-        const fallbackRows = await db.getAllAsync('SELECT def, syns, examples FROM dict WHERE lemma = ? LIMIT 1', [word.toLowerCase()]);
+        // Fallback to dict table format (only lemma and def columns)
+        const fallbackRows = await db.getAllAsync('SELECT def FROM dict WHERE lemma = ? LIMIT 1', [word.toLowerCase()]);
         
         if (fallbackRows.length > 0) {
           const row = fallbackRows[0];
+          const definition = row.def || '';
+          const cleanDefinition = this.cleanHtmlDefinition(definition);
+          
           return {
-            definition: row.def || '',
-            synonyms: row.syns ? JSON.parse(row.syns) : [],
-            examples: row.examples ? JSON.parse(row.examples) : []
+            definition: cleanDefinition,
+            synonyms: this.extractSynonymsFromDefinition(definition),
+            examples: this.extractExamplesFromDefinition(definition)
           };
         } else {
           return {
@@ -658,76 +802,40 @@ export class SQLiteDictionaryService {
 
   /**
    * Translate word using StarDict bilingual dictionary (PyGlossary format)
+   * Simplified version for directional databases
    */
   private static async translateWordUsingStarDict(word: string, fromLang: string, toLang: string): Promise<string | null> {
     try {
-      // Look for bilingual dictionary database
-      const bilingualKey = `${fromLang}-${toLang}`;
-      const reverseKey = `${toLang}-${fromLang}`;
+      console.log(`📖 StarDict translation: "${word}" (${fromLang} → ${toLang})`);
       
-      // Try to find bilingual database
-      let bilingualDb = this.databases.get(bilingualKey) || this.databases.get(reverseKey);
-      console.log(`📖 Looking for bilingual database: ${bilingualKey} or ${reverseKey}`);
+      // Look for the correct directional database
+      const directionalKey = `${fromLang}-${toLang}`;
+      const db = this.databases.get(directionalKey);
       
-      if (!bilingualDb) {
-        console.log(`📖 No bilingual dictionary found for ${fromLang}-${toLang}`);
+      console.log(`📖 Looking for database: ${directionalKey}`);
+      console.log(`📖 Available databases: ${Array.from(this.databases.keys()).join(', ')}`);
+      
+      if (!db) {
+        console.log(`📖 ❌ No database found for ${directionalKey}`);
         return null;
       }
-
-      try {
-        // First, check what tables exist in the database
-        const tables = await bilingualDb.getAllAsync("SELECT name FROM sqlite_master WHERE type='table'");
-        console.log(`📖 Available tables in bilingual database:`, tables.map(t => t.name));
-        
-        // If no tables, check if database is valid
-        if (tables.length === 0) {
-          console.error(`📖 ❌ Database has no tables! This indicates a corrupted or empty database.`);
-          
-          // Try to get database info
-          const pragma = await bilingualDb.getAllAsync("PRAGMA database_list");
-          console.log(`📖 Database info:`, pragma);
-          
-          return null;
-        }
-        
-        // Try PyGlossary format first (word table with w, m columns)
-        try {
-          const rows = await bilingualDb.getAllAsync('SELECT m FROM word WHERE w = ? COLLATE NOCASE LIMIT 1', [word.trim()]);
-          
-          if (rows.length > 0) {
-            const definition = rows[0].m;
-            console.log(`📖 Found PyGlossary entry for "${word}":`, definition.substring(0, 100));
-            // Extract translation from HTML definition
-            const translation = this.extractTranslationFromDefinition(definition);
-            return translation;
-          }
-        } catch (wordTableError) {
-          console.log(`📖 No 'word' table found, trying 'dict' table...`);
-        }
-        
-        // Fallback to original StarDict format
-        try {
-          const fallbackRows = await bilingualDb.getAllAsync('SELECT def FROM dict WHERE lemma = ? LIMIT 1', [word.toLowerCase()]);
-          
-          if (fallbackRows.length > 0) {
-            const definition = fallbackRows[0].def;
-            console.log(`📖 Found StarDict entry for "${word}":`, definition.substring(0, 100));
-            // Extract first translation from definition
-            const translation = definition.split(';')[0].split(',')[0].trim();
-            return translation;
-          }
-        } catch (dictTableError) {
-          console.log(`📖 No 'dict' table found either`);
-        }
-        
-        return null;
-      } catch (error) {
-        console.error(`StarDict lookup error for "${word}":`, error);
-        return null;
+      
+      console.log(`📖 ✅ Found database for ${directionalKey}`);
+      
+      // Try PyGlossary format (word table)
+      const rows = await db.getAllAsync('SELECT w, m FROM word WHERE w = ? COLLATE NOCASE LIMIT 1', [word]);
+      
+      if (rows.length > 0) {
+        const definition = rows[0].m;
+        console.log(`📖 ✅ Found translation: "${word}" → "${definition}"`);
+        return definition;
       }
-
+      
+      console.log(`📖 No translation found for "${word}" in ${directionalKey}`);
+      return null;
+        
     } catch (error) {
-      console.error(`StarDict translation failed for "${word}":`, error);
+      console.error(`📖 StarDict lookup error for "${word}":`, error);
       return null;
     }
   }
@@ -736,106 +844,51 @@ export class SQLiteDictionaryService {
    * Detect language of a word
    */
   private static async detectLanguage(word: string): Promise<string> {
-    return this.simpleLanguageDetection(word);
+    try {
+      // TODO: Implement ML Kit Language Identification when available
+      // const languageTag = await LanguageIdentification.identifyLanguage(word);
+      // if (languageTag && languageTag !== 'und') return languageTag;
+    } catch (error) {
+      console.log('🔍 ML Kit not available, using heuristics');
+    }
+    
+    // Fallback to improved heuristics
+    return this.improvedLanguageDetection(word);
   }
 
   /**
-   * Simple language detection fallback
+   * Improved multi-stage language detection
    */
-  private static simpleLanguageDetection(word: string): string {
-    // Spanish characteristics
-    if (/[ñáéíóúü]/.test(word) || /^[aeiou]/.test(word) || /(ción|dad|mente|izar)$/.test(word)) {
+  private static improvedLanguageDetection(word: string): string {
+    console.log(`🔍 Language detection for: "${word}"`);
+    
+    // Spanish characteristics (more specific)
+    if (/[ñáéíóúü]/.test(word)) {
+      console.log(`🔍 Detected Spanish: contains Spanish diacritics`);
+      return 'es';
+    }
+    if (/(ción|sión|dad|mente|izar|ando|endo|esto|esta|esta)$/.test(word)) {
+      console.log(`🔍 Detected Spanish: Spanish suffix patterns`);
       return 'es';
     }
     
     // French characteristics
-    if (/[àâéèêëîïôùûüÿç]/.test(word) || /(tion|ment|ique)$/.test(word)) {
+    if (/[àâéèêëîïôùûüÿç]/.test(word)) {
+      console.log(`🔍 Detected French: contains French diacritics`);
+      return 'fr';
+    }
+    if (/(tion|ment|ique|eux|euse)$/.test(word)) {
+      console.log(`🔍 Detected French: French suffix patterns`);
       return 'fr';
     }
     
-    // Default to English
+    // Default to English (removed the overly broad vowel rule)
+    console.log(`🔍 Detected English: default fallback`);
     return 'en';
   }
 
   /**
-   * Generate example sentences (using templates, no translation needed)
-   */
-  private static generateExamples(
-    sourceWord: string, 
-    translation: string, 
-    sourceLang: string, 
-    targetLang: string
-  ): {source: string, target: string} {
-    
-    // Simple template examples based on language
-    if (sourceLang === 'en') {
-      return {
-        source: `I use "${sourceWord}" every day.`,
-        target: `Yo uso "${translation}" todos los días.`
-      };
-    } else if (sourceLang === 'es') {
-      return {
-        source: `Yo uso "${sourceWord}" todos los días.`,
-        target: `I use "${translation}" every day.`
-      };
-    } else {
-      return {
-        source: `Example with "${sourceWord}"`,
-        target: `Example with "${translation}"`
-      };
-    }
-  }
-
-  /**
-   * Build rich bilingual definition
-   */
-  private static buildBilingualDefinition(
-    sourceWord: string,
-    translation: string,
-    sourceLang: string,
-    targetLang: string,
-    sourceData: any,
-    targetData: any,
-    examples: any
-  ): BilingualWordDefinition {
-    
-    return {
-      word: sourceWord,
-      language: sourceLang,
-      
-      translations: [{
-        word: translation,
-        language: targetLang,
-        confidence: 0.95,
-        frequency: 5000
-      }],
-      
-      definitions: [{
-        partOfSpeech: 'unknown',
-        definition: sourceData.definition,
-        definitionLanguage: sourceLang,
-        example: examples.source,
-        synonyms: sourceData.synonyms || []
-      }],
-      
-      frequency: 5000,
-      difficulty: 'intermediate',
-      
-      etymology: sourceData.etymology ? {
-        text: sourceData.etymology,
-        language: sourceLang
-      } : undefined,
-      
-      crossLanguageData: {
-        sourceSynonyms: sourceData.synonyms || [],
-        targetSynonyms: targetData.synonyms || [],
-        sourceDefinition: sourceData.definition
-      }
-    };
-  }
-
-  /**
-   * Check if language dictionary is available
+   * Check if language is available
    */
   static isLanguageAvailable(languageCode: string): boolean {
     return this.databases.has(languageCode);
@@ -846,82 +899,6 @@ export class SQLiteDictionaryService {
    */
   static getAvailableLanguages(): string[] {
     return Array.from(this.databases.keys());
-  }
-
-  /**
-   * Cleanup resources and close database connections
-   */
-  static async cleanup(): Promise<void> {
-    try {
-      console.log('📚 SQLiteDictionaryService: Cleaning up resources...');
-      
-      // Close all database connections
-      const closePromises = Array.from(this.databases.values()).map(async (db) => {
-        try {
-          if (db && typeof db.closeAsync === 'function') {
-            await db.closeAsync();
-          }
-        } catch (error) {
-          console.warn('📚 SQLiteDictionaryService: Error closing database:', error);
-        }
-      });
-      
-      await Promise.all(closePromises);
-      
-      // Clear all references
-      this.databases.clear();
-      this.initialized = false;
-      this.initializationPromise = null;
-      this.initializationError = null;
-      
-      console.log('📚 SQLiteDictionaryService: Cleanup completed');
-      
-    } catch (error) {
-      console.error('📚 SQLiteDictionaryService: Cleanup failed:', error);
-    }
-  }
-
-  /**
-   * Clean HTML definition (remove HTML tags, keep content)
-   */
-  private static cleanHtmlDefinition(htmlDefinition: string): string {
-    if (!htmlDefinition) return '';
-    
-    // Remove HTML tags but preserve content
-    let cleaned = htmlDefinition
-      .replace(/<div[^>]*>/g, ' ')
-      .replace(/<\/div>/g, ' ')
-      .replace(/<br\s*\/?>/g, ' ')
-      .replace(/<font[^>]*>/g, '')
-      .replace(/<\/font>/g, '')
-      .replace(/<[^>]+>/g, '') // Remove any remaining HTML tags
-      .replace(/\s+/g, ' ') // Normalize whitespace
-      .trim();
-    
-    return cleaned;
-  }
-
-  /**
-   * Extract translation from HTML definition (for bilingual dictionaries)
-   */
-  private static extractTranslationFromDefinition(htmlDefinition: string): string | null {
-    if (!htmlDefinition) return null;
-    
-    // Look for content in <div> tags (often the translation)
-    const divMatch = htmlDefinition.match(/<div[^>]*>([^<]+)<\/div>/);
-    if (divMatch) {
-      return divMatch[1].trim();
-    }
-    
-    // Clean and extract first meaningful text
-    const cleaned = this.cleanHtmlDefinition(htmlDefinition);
-    const parts = cleaned.split(/[,;]/);
-    
-    if (parts.length > 0) {
-      return parts[0].trim();
-    }
-    
-    return null;
   }
 
   /**
@@ -963,10 +940,97 @@ export class SQLiteDictionaryService {
     const examples: string[] = [];
     
     for (const pattern of examplePatterns) {
-      const matches = htmlDefinition.matchAll(new RegExp(pattern.source, pattern.flags));
-      for (const match of matches) {
-        examples.push(match[1].trim());
+      if (pattern.global) {
+        // Handle global patterns like /"([^"]+)"/g
+        let match;
+        const regex = new RegExp(pattern.source, pattern.flags);
+        while ((match = regex.exec(htmlDefinition)) !== null) {
+          if (match[1]) {
+            examples.push(match[1].trim());
+          }
+        }
+      } else {
+        // Handle non-global patterns
+        const match = htmlDefinition.match(pattern);
+        if (match && match[1]) {
+          examples.push(match[1].trim());
+        }
       }
+    }
+    
+    return examples.filter(ex => ex.length > 0);
+  }
+
+  /**
+   * Clean HTML definition by removing tags and formatting
+   */
+  private static cleanHtmlDefinition(htmlDefinition: string): string {
+    if (!htmlDefinition) return '';
+    
+    return htmlDefinition
+      .replace(/<[^>]*>/g, ' ')           // Remove HTML tags
+      .replace(/&nbsp;/g, ' ')           // Replace &nbsp; with space
+      .replace(/&amp;/g, '&')            // Replace &amp; with &
+      .replace(/&lt;/g, '<')             // Replace &lt; with <
+      .replace(/&gt;/g, '>')             // Replace &gt; with >
+      .replace(/\s+/g, ' ')              // Collapse multiple spaces
+      .trim();                           // Remove leading/trailing whitespace
+  }
+
+  /**
+   * Build bilingual word definition combining source and target data
+   */
+  private static buildBilingualDefinition(
+    sourceWord: string,
+    targetWord: string,
+    sourceLanguage: string,
+    targetLanguage: string,
+    translation: string,
+    examples: string[]
+  ): any {
+    return {
+      word: sourceWord,
+      definition: this.cleanHtmlDefinition(translation),
+      pronunciation: null,
+      partOfSpeech: null,
+      examples: examples || [],
+      synonyms: this.extractSynonymsFromDefinition(translation),
+      translations: [{
+        text: targetWord || this.cleanHtmlDefinition(translation),
+        language: targetLanguage,
+        confidence: 0.9
+      }],
+      sourceLanguage,
+      targetLanguage,
+      etymology: null,
+      frequency: null
+    };
+  }
+
+  /**
+   * Generate example sentences using the word and translation
+   */
+  private static generateExamples(
+    word: string,
+    translation: string,
+    sourceLanguage: string,
+    targetLanguage: string
+  ): string[] {
+    const examples: string[] = [];
+    
+    // Extract examples from the translation definition if they exist
+    const existingExamples = this.extractExamplesFromDefinition(translation);
+    if (existingExamples.length > 0) {
+      return existingExamples;
+    }
+    
+    // Generate simple template examples as fallback
+    if (sourceLanguage === 'es' && targetLanguage === 'en') {
+      examples.push(`La palabra "${word}" significa "${this.cleanHtmlDefinition(translation)}".`);
+    } else if (sourceLanguage === 'en' && targetLanguage === 'es') {
+      examples.push(`The word "${word}" means "${this.cleanHtmlDefinition(translation)}".`);
+    } else {
+      examples.push(`${word} → ${this.cleanHtmlDefinition(translation)}`);
     }
     
     return examples.filter(ex => ex.length > 0);

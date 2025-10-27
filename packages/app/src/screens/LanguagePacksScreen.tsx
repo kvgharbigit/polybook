@@ -79,7 +79,10 @@ export default function LanguagePacksScreen() {
         LanguagePackService.getStorageStats()
       ]);
 
-      setAvailablePacks(available);
+      // Filter out hidden companion packs from UI
+      const visiblePacks = available.filter(pack => !pack.hidden);
+      
+      setAvailablePacks(visiblePacks);
       setInstalledPacks(installed);
       setStorageStats(stats);
     } catch (error) {
@@ -89,7 +92,18 @@ export default function LanguagePacksScreen() {
 
   const handleDownload = async (pack: LanguagePackManifest) => {
     try {
-      // Check storage space first
+      // Check storage space first (include companion pack if exists)
+      let totalSizeNeeded = pack.totalSize;
+      let companionPack = null;
+      
+      if (pack.companionPackId) {
+        const allPacks = await LanguagePackService.getAvailablePacks();
+        companionPack = allPacks.find(p => p.id === pack.companionPackId);
+        if (companionPack) {
+          totalSizeNeeded += companionPack.totalSize;
+        }
+      }
+      
       const storage = await LanguagePackService.checkStorageSpace(pack.id);
       
       if (!storage) {
@@ -105,12 +119,15 @@ export default function LanguagePacksScreen() {
 
       console.log(`📦 LanguagePacksScreen: Starting download for ${pack.name}`);
 
-      // Start download with progress tracking
+      // Download the main pack
       await LanguagePackService.startDownload(pack.id, (download) => {
         setActiveDownloads(prev => new Map(prev.set(pack.id, download)));
         
-        // Reload data when download completes
-        if (download.status === 'completed') {
+        // When main pack completes, start companion pack download
+        if (download.status === 'completed' && pack.companionPackId) {
+          downloadCompanionPack(pack.companionPackId);
+        } else if (download.status === 'completed') {
+          // No companion pack, just reload data
           setTimeout(() => {
             loadData();
           }, 1000);
@@ -120,6 +137,26 @@ export default function LanguagePacksScreen() {
     } catch (error) {
       console.error(`📦 LanguagePacksScreen: Download error for ${pack.id}:`, error);
       Alert.alert('Download Failed', String(error));
+    }
+  };
+
+  const downloadCompanionPack = async (companionPackId: string) => {
+    try {
+      console.log(`📦 LanguagePacksScreen: Starting companion pack download for ${companionPackId}`);
+      
+      await LanguagePackService.startDownload(companionPackId, (download) => {
+        setActiveDownloads(prev => new Map(prev.set(companionPackId, download)));
+        
+        // Reload data when companion download completes
+        if (download.status === 'completed') {
+          setTimeout(() => {
+            loadData();
+          }, 1000);
+        }
+      });
+    } catch (error) {
+      console.error(`📦 LanguagePacksScreen: Companion download error for ${companionPackId}:`, error);
+      // Don't show alert for companion pack failures, just log
     }
   };
 

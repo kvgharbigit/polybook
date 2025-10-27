@@ -7,7 +7,7 @@ import { useTheme } from '../hooks/useTheme';
 import type { Book } from '@polybook/shared';
 
 export default function LibraryScreen() {
-  const { navigate } = useNavigation();
+  const { navigate, goBack } = useNavigation();
   const { theme } = useTheme();
   const books = useAppStore(state => state.books);
   const isLoading = useAppStore(state => state.isLoading);
@@ -126,6 +126,16 @@ export default function LibraryScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={goBack}>
+          <Text style={[styles.backButton, { color: theme.colors.primary }]}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: theme.colors.headerText }]}>
+          My Library
+        </Text>
+        <View style={styles.headerRight} />
+      </View>
+
       <View style={styles.content}>
         {books.length === 0 ? (
           <View style={styles.emptyState}>
@@ -171,6 +181,29 @@ const createStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: theme.colors.border + '40',
+    backgroundColor: theme.colors.header + 'F8',
+  },
+  backButton: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerRight: {
+    width: 60,
   },
   content: {
     flex: 1,
