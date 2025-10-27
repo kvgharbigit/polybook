@@ -107,14 +107,14 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
     version: '1.0.0',
     sourceLanguage: 'es',
     targetLanguage: 'en',
-    totalSize: 5090394, // Real database ZIP size (5MB)
-    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/latest/download/spa-eng.sqlite.zip',
+    totalSize: 8253653, // Real database ZIP size from v1.0.0 release (8.2MB)
+    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/download/v1.0.0/es-en-full.sqlite.zip',
     checksum: 'real_database_checksum_here',
     dictionary: {
-      filename: 'es-en.sqlite',
-      size: 14680064, // Real SQLite database size  
+      filename: 'spa-eng.sqlite', // Actual filename in the ZIP
+      size: 14680064, // Expected real SQLite database size
       checksum: 'real_database_checksum_here',
-      entries: 43638, // Full dictionary entries from natural build
+      entries: 43638, // Full dictionary entries from real build
       source: 'wiktionary'
     },
     mlKitSupport: {
@@ -134,7 +134,7 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
     sourceLanguage: 'de',
     targetLanguage: 'en',
     totalSize: 823201, // 823KB (actual German dictionary size)
-    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/latest/download/deu-eng.sqlite.zip',
+    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/download/v1.0.0/de-en.sqlite.zip',
     checksum: 'c7241f107434212228c9304c422c1378deff34370e79748aaef2649e122a6f9f',
     dictionary: {
       filename: 'de-en.sqlite',
@@ -174,9 +174,10 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
       targetToSource: true,  // English to French supported
       downloadSize: 42 * 1024 * 1024, // ~42MB per direction
     },
-    description: 'French-English language pack with Wiktionary dictionary and ML Kit translation support.',
+    description: 'French-English language pack with Wiktionary dictionary and ML Kit translation support. (Coming Soon)',
     releaseDate: '2024-01-15T00:00:00Z',
-    minAppVersion: '1.0.0'
+    minAppVersion: '1.0.0',
+    deprecated: true  // Gray out - real data not yet available
   },
 
   {
@@ -200,9 +201,10 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
       targetToSource: true,  // English to Korean supported
       downloadSize: 47 * 1024 * 1024, // ~47MB per direction
     },
-    description: 'Korean-English language pack with Wiktionary dictionary and ML Kit translation support.',
+    description: 'Korean-English language pack with Wiktionary dictionary and ML Kit translation support. (Coming Soon)',
     releaseDate: '2024-01-15T00:00:00Z',
-    minAppVersion: '1.0.0'
+    minAppVersion: '1.0.0',
+    deprecated: true  // Gray out - real data not yet available
   },
 
   {
@@ -226,9 +228,10 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
       targetToSource: true,  // English to Arabic supported
       downloadSize: 49 * 1024 * 1024, // ~49MB per direction
     },
-    description: 'Arabic-English language pack with Wiktionary dictionary and ML Kit translation support.',
+    description: 'Arabic-English language pack with Wiktionary dictionary and ML Kit translation support. (Coming Soon)',
     releaseDate: '2024-01-15T00:00:00Z',
-    minAppVersion: '1.0.0'
+    minAppVersion: '1.0.0',
+    deprecated: true  // Gray out - real data not yet available
   },
 
   {
@@ -252,9 +255,10 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
       targetToSource: true,  // English to Hindi supported
       downloadSize: 44 * 1024 * 1024, // ~44MB per direction
     },
-    description: 'Hindi-English language pack with Wiktionary dictionary and ML Kit translation support.',
+    description: 'Hindi-English language pack with Wiktionary dictionary and ML Kit translation support. (Coming Soon)',
     releaseDate: '2024-01-15T00:00:00Z',
-    minAppVersion: '1.0.0'
+    minAppVersion: '1.0.0',
+    deprecated: true  // Gray out - real data not yet available
   },
 
   {
@@ -278,9 +282,10 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
       targetToSource: true,  // English to Japanese supported
       downloadSize: 46 * 1024 * 1024, // ~46MB per direction
     },
-    description: 'Japanese-English language pack with Wiktionary dictionary and ML Kit translation support.',
+    description: 'Japanese-English language pack with Wiktionary dictionary and ML Kit translation support. (Coming Soon)',
     releaseDate: '2024-01-15T00:00:00Z',
-    minAppVersion: '1.0.0'
+    minAppVersion: '1.0.0',
+    deprecated: true  // Gray out - real data not yet available
   },
 
   {
@@ -304,9 +309,10 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
       targetToSource: true,  // English to Portuguese supported
       downloadSize: 42 * 1024 * 1024, // ~42MB per direction
     },
-    description: 'Portuguese-English language pack with Wiktionary dictionary and ML Kit translation support.',
+    description: 'Portuguese-English language pack with Wiktionary dictionary and ML Kit translation support. (Coming Soon)',
     releaseDate: '2024-01-15T00:00:00Z',
-    minAppVersion: '1.0.0'
+    minAppVersion: '1.0.0',
+    deprecated: true  // Gray out - real data not yet available
   },
 
   {
@@ -330,9 +336,10 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
       targetToSource: true,  // English to Italian supported
       downloadSize: 43 * 1024 * 1024, // ~43MB per direction
     },
-    description: 'Italian-English language pack with Wiktionary dictionary and ML Kit translation support.',
+    description: 'Italian-English language pack with Wiktionary dictionary and ML Kit translation support. (Coming Soon)',
     releaseDate: '2024-01-15T00:00:00Z',
-    minAppVersion: '1.0.0'
+    minAppVersion: '1.0.0',
+    deprecated: true  // Gray out - real data not yet available
   },
 
   {
@@ -356,9 +363,10 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
       targetToSource: true,  // English to Russian supported
       downloadSize: 45 * 1024 * 1024, // ~45MB per direction
     },
-    description: 'Russian-English language pack with Wiktionary dictionary and ML Kit translation support.',
+    description: 'Russian-English language pack with Wiktionary dictionary and ML Kit translation support. (Coming Soon)',
     releaseDate: '2024-01-15T00:00:00Z',
-    minAppVersion: '1.0.0'
+    minAppVersion: '1.0.0',
+    deprecated: true  // Gray out - real data not yet available
   },
 
   {
@@ -382,9 +390,10 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
       targetToSource: true,  // English to Chinese supported
       downloadSize: 48 * 1024 * 1024, // ~48MB per direction
     },
-    description: 'Chinese-English language pack with Wiktionary dictionary and ML Kit translation support.',
+    description: 'Chinese-English language pack with Wiktionary dictionary and ML Kit translation support. (Coming Soon)',
     releaseDate: '2024-01-15T00:00:00Z',
-    minAppVersion: '1.0.0'
+    minAppVersion: '1.0.0',
+    deprecated: true  // Gray out - real data not yet available
   }
 ];
 
