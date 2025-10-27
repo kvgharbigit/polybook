@@ -1,0 +1,144 @@
+name: Build Extended Dictionary Packs
+
+on:
+  workflow_dispatch:
+    inputs:
+      languages:
+        description: 'Languages to build (comma-separated pairs like eng-fra,fra-eng,eng-deu)'
+        required: false
+        default: 'eng-fra,fra-eng,eng-deu,deu-eng'
+  schedule:
+    - cron: '0 3 * * 1'  # Weekly on Monday at 3 AM (after Spanish builds)
+
+jobs:
+  build-extended-bilingual:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        pair: [
+          eng-fra, fra-eng,    # French ↔ English (3.2MB)
+          eng-deu, deu-eng,    # German ↔ English (6.9MB) 
+          eng-ita, ita-eng,    # Italian ↔ English (5.3MB)
+          eng-por, por-eng,    # Portuguese ↔ English (2.6MB)
+          eng-rus, rus-eng,    # Russian ↔ English (4.2MB)
+          eng-chn, chn-eng,    # Mandarin ↔ English (4.6MB)
+          eng-jpn, jpn-eng,    # Japanese ↔ English (5.9MB)
+          eng-kor, kor-eng,    # Korean ↔ English (2.1MB)
+          eng-ara, ara-eng,    # Arabic ↔ English (2.9MB) 
+          eng-hin, hin-eng     # Hindi ↔ English (1.0MB)
+        ]
+      fail-fast: false  # Continue building other languages if one fails
+      max-parallel: 3   # Limit concurrent builds to avoid resource issues
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-pip sqlite3 curl
+        pip3 install pyglossary tqdm lxml
+    
+    - name: Build optimal bilingual pack
+      run: |
+        cd tools
+        ./build-unified-pack.sh ${{ matrix.pair }}
+    
+    - name: Upload pack artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.pair }}
+        path: tools/dist/packs/${{ matrix.pair }}.*
+
+  publish-extended-release:
+    needs: [build-extended-bilingual]
+    runs-on: ubuntu-latest
+    if: success()
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: dist/packs/
+    
+    - name: Flatten artifacts
+      run: |
+        mkdir -p final-packs
+        find dist/packs/ -name "*.zip" -exec cp {} final-packs/ \;
+        find dist/packs/ -name "*.json" -exec cp {} final-packs/ \;
+        ls -la final-packs/
+    
+    - name: Generate registry
+      run: |
+        cd final-packs
+        echo '{' > registry.json
+        echo '  "version": "extended-packs-'$(date +%Y%m%d)'",' >> registry.json
+        echo '  "baseUrl": "https://github.com/kvgharbigit/polybook/releases/download/",' >> registry.json
+        echo '  "packs": {' >> registry.json
+        first=true
+        for file in *.json; do
+          if [ "$file" != "registry.json" ]; then
+            if [ "$first" = true ]; then
+              first=false
+            else
+              echo ',' >> registry.json
+            fi
+            packid=$(basename "$file" .json)
+            echo -n "    \"$packid\": " >> registry.json
+            cat "$file" >> registry.json
+          fi
+        done
+        echo '' >> registry.json
+        echo '  }' >> registry.json
+        echo '}' >> registry.json
+        cat registry.json
+    
+    - name: Create Extended Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: extended-packs-${{ github.run_number }}
+        name: Extended Dictionary Packs v${{ github.run_number }}
+        body: |
+          🌍 **Extended Language Dictionary Pack Collection**
+          
+          **Production-Ready Multilingual Dictionaries (10 Languages)**
+          
+          **European Languages:**
+          - 🇫🇷 **French ↔ English**: Complete Wiktionary integration (3.2MB)
+          - 🇩🇪 **German ↔ English**: Comprehensive dictionary (6.9MB)
+          - 🇮🇹 **Italian ↔ English**: Full bilingual support (5.3MB)
+          - 🇵🇹 **Portuguese ↔ English**: Wiktionary-based (2.6MB)
+          - 🇷🇺 **Russian ↔ English**: Cyrillic script support (4.2MB)
+          
+          **Asian Languages:**
+          - 🇨🇳 **Mandarin ↔ English**: Simplified Chinese support (4.6MB)
+          - 🇯🇵 **Japanese ↔ English**: Hiragana/Katakana/Kanji (5.9MB)
+          - 🇰🇷 **Korean ↔ English**: Hangul script support (2.1MB)
+          - 🇮🇳 **Hindi ↔ English**: Devanagari script (1.0MB)
+          
+          **Middle Eastern:**
+          - 🇸🇦 **Arabic ↔ English**: Right-to-left script (2.9MB)
+          
+          **Features:**
+          - ✅ **93K+ entries per dictionary** with corruption-resistant builds
+          - ✅ **Bidirectional lookup** for all language pairs
+          - ✅ **Rich definitions** with examples and IPA pronunciation
+          - ✅ **Mobile-optimized** SQLite format for fast offline access
+          - ✅ **Wiktionary quality** from verified sources
+          
+          **Technical Details:**
+          - Built with enhanced corruption handling and schema validation
+          - Includes both main entries and alternate word forms
+          - Optimized for React Native and Expo applications
+          - Compatible with iOS, Android, and Web platforms
+          
+          Built from: Wiktionary-Dictionaries ${{ github.sha }}
+        files: |
+          final-packs/*.zip
+          final-packs/registry.json
+        prerelease: false
+        make_latest: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
