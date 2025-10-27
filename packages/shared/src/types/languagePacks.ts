@@ -23,7 +23,7 @@ export interface LanguagePackManifest {
     size: number;                // Size in bytes
     checksum: string;            // SHA-256 hash
     entries: number;             // Number of dictionary entries
-    source: 'wiktionary' | 'freedict' | 'custom';
+    source: 'wiktionary' | 'custom';
   };
   
   // Translation models (for sentence translation)
