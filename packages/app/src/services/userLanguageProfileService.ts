@@ -189,7 +189,7 @@ export class UserLanguageProfileService {
     };
 
     return {
-      id: `profile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `profile_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
       nativeLanguage: deviceLanguage,
       targetLanguages: getTargetLanguages(deviceLanguage),
       preferredDefinitionLanguage: deviceLanguage,

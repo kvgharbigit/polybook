@@ -20,18 +20,25 @@ import {
   LanguagePackStats,
   formatPackSize 
 } from '@polybook/shared/src/types/languagePacks';
+import TranslationModelsTab from '../components/TranslationModelsTab';
+import TranslationSettingsScreen from '../components/TranslationSettingsScreen';
+
+type TabType = 'packs' | 'models' | 'settings';
 
 export default function LanguagePacksScreen() {
   const { goBack } = useNavigation();
   const { theme } = useTheme();
   const styles = createStyles(theme);
 
-  // State
+  // Main state
+  const [activeTab, setActiveTab] = useState<TabType>('packs');
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Language Packs state
   const [availablePacks, setAvailablePacks] = useState<LanguagePackManifest[]>([]);
   const [installedPacks, setInstalledPacks] = useState<InstalledLanguagePack[]>([]);
   const [activeDownloads, setActiveDownloads] = useState<Map<string, LanguagePackDownload>>(new Map());
   const [storageStats, setStorageStats] = useState<LanguagePackStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [showStorageWarning, setShowStorageWarning] = useState(false);
   const [selectedPack, setSelectedPack] = useState<LanguagePackManifest | null>(null);
 
@@ -54,6 +61,14 @@ export default function LanguagePacksScreen() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Handle tab refresh from child components
+  const handleRefresh = () => {
+    if (activeTab === 'packs') {
+      loadData();
+    }
+    // Models tab handles its own refresh internally
   };
 
   const loadData = async () => {
@@ -364,39 +379,45 @@ export default function LanguagePacksScreen() {
     </Modal>
   );
 
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={goBack}>
-            <Text style={[styles.backButton, { color: theme.colors.primary }]}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.colors.headerText }]}>
-            Language Packs
-          </Text>
-          <View style={styles.headerRight} />
-        </View>
-        
+  const renderTabButton = (tab: TabType, label: string, icon: string) => (
+    <TouchableOpacity
+      key={tab}
+      style={[styles.tabButton, activeTab === tab && styles.activeTabButton]}
+      onPress={() => setActiveTab(tab)}
+    >
+      <Text style={[styles.tabIcon, activeTab === tab && styles.activeTabIcon]}>
+        {icon}
+      </Text>
+      <Text style={[styles.tabLabel, activeTab === tab && styles.activeTabLabel]}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  const renderTabContent = () => {
+    if (isLoading && activeTab === 'packs') {
+      return (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={styles.loadingText}>Loading language packs...</Text>
         </View>
-      </SafeAreaView>
-    );
-  }
+      );
+    }
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={goBack}>
-          <Text style={[styles.backButton, { color: theme.colors.primary }]}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.colors.headerText }]}>
-          Language Packs
-        </Text>
-        <View style={styles.headerRight} />
-      </View>
+    switch (activeTab) {
+      case 'packs':
+        return renderLanguagePacksTab();
+      case 'models':
+        return <TranslationModelsTab onRefresh={handleRefresh} />;
+      case 'settings':
+        return <TranslationSettingsScreen onBack={() => setActiveTab('packs')} />;
+      default:
+        return null;
+    }
+  };
 
+  const renderLanguagePacksTab = () => (
+    <>
       {/* Storage Stats */}
       {storageStats && (
         <View style={styles.statsContainer}>
@@ -435,6 +456,32 @@ export default function LanguagePacksScreen() {
       />
 
       {renderStorageWarning()}
+    </>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={goBack}>
+          <Text style={[styles.backButton, { color: theme.colors.primary }]}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: theme.colors.headerText }]}>
+          Language & Translation
+        </Text>
+        <View style={styles.headerRight} />
+      </View>
+
+      {/* Tab Navigation */}
+      <View style={styles.tabContainer}>
+        {renderTabButton('packs', 'Dictionary', '📚')}
+        {renderTabButton('models', 'Translation', '🌐')}
+        {renderTabButton('settings', 'Settings', '⚙️')}
+      </View>
+
+      {/* Tab Content */}
+      <View style={styles.tabContent}>
+        {renderTabContent()}
+      </View>
     </SafeAreaView>
   );
 }
@@ -700,5 +747,45 @@ const createStyles = (theme: any) => StyleSheet.create({
     color: theme.colors.background,
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Tab navigation styles
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    paddingHorizontal: 4,
+  },
+  tabButton: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    marginHorizontal: 2,
+  },
+  activeTabButton: {
+    backgroundColor: theme.colors.primary + '15',
+  },
+  tabIcon: {
+    fontSize: 20,
+    marginBottom: 4,
+  },
+  activeTabIcon: {
+    fontSize: 20,
+  },
+  tabLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+  },
+  activeTabLabel: {
+    color: theme.colors.primary,
+    fontWeight: '600',
+  },
+  tabContent: {
+    flex: 1,
   },
 });

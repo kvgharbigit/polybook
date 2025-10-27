@@ -42,7 +42,7 @@ class WebDatabaseService {
   async addBook(book: Omit<Book, 'id'>): Promise<string> {
     if (!this.isInitialized) throw new Error('Database not initialized');
 
-    const id = `book_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = `book_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
     const newBook: Book = {
       ...book,
       id,
@@ -153,7 +153,7 @@ class WebDatabaseService {
   async addVocabularyCard(card: Omit<VocabularyCard, 'id'>): Promise<string> {
     if (!this.isInitialized) throw new Error('Database not initialized');
 
-    const id = `vocab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = `vocab_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
     const newCard: VocabularyCard = {
       ...card,
       id,

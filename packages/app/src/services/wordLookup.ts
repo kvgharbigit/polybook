@@ -1,6 +1,7 @@
 import { WordDefinition } from '../components/TranslationPopup';
 import DictionaryService from './bilingualDictionaryService';
 import UserLanguageProfileService from './userLanguageProfileService';
+import { TIMEOUTS } from '../constants/timeouts';
 
 // Basic word definitions for common words - will be expanded to real dictionary later
 const BASIC_DICTIONARY: Record<string, WordDefinition> = {
@@ -584,7 +585,7 @@ export class WordLookupService {
    */
   private static async lookupWordBasic(word: string): Promise<WordDefinition | null> {
     // Simulate network delay for realistic experience
-    await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 500));
+    await new Promise(resolve => setTimeout(resolve, TIMEOUTS.WORD_LOOKUP_SIMULATION_BASE + Math.random() * TIMEOUTS.WORD_LOOKUP_SIMULATION_RANDOM));
     
     // Normalize the word (lowercase, remove punctuation)
     const normalizedWord = word.toLowerCase().replace(/[^\w]/g, '');

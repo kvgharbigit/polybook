@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system';
 import { unzipSync } from 'fflate';
 import { Buffer } from 'buffer';
+import { PERFORMANCE, PATHS } from '../constants/timeouts';
 import { 
   LanguagePackManifest, 
   LanguagePackDownload, 
@@ -117,8 +118,8 @@ export class LanguagePackService {
       const freeSpace = await FileSystem.getFreeDiskStorageAsync();
       const requiredSpace = pack.totalSize;
       
-      // Add 100MB buffer for extraction and temporary files
-      const hasSpace = freeSpace > (requiredSpace + 100 * 1024 * 1024);
+      // Add buffer for extraction and temporary files
+      const hasSpace = freeSpace > (requiredSpace + PERFORMANCE.MAX_BUFFER_SIZE);
 
       return {
         hasSpace,

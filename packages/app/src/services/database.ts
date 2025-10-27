@@ -3,7 +3,7 @@ import * as Crypto from 'expo-crypto';
 import { Book, VocabularyCard, Position, TranslationCache, BookContent } from '@polybook/shared/src/types';
 
 // Conditional import for SQLite (only on native platforms)
-let SQLite: any = null;
+let SQLite: typeof import('expo-sqlite') | null = null;
 if (Platform.OS !== 'web') {
   try {
     SQLite = require('expo-sqlite');
@@ -16,7 +16,7 @@ const DATABASE_NAME = 'polybook.db';
 const DATABASE_VERSION = 1;
 
 class DatabaseService {
-  private db: any = null;
+  private db: import('expo-sqlite').SQLiteDatabase | null = null;
 
   async initialize(): Promise<void> {
     try {
@@ -139,7 +139,7 @@ class DatabaseService {
   async addBook(book: Omit<Book, 'id'>): Promise<string> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const id = `book_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = `book_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
     
     await this.db.runAsync(
       `INSERT INTO books (id, title, author, language, target_language, format, file_path, cover_path, file_size, total_pages, added_at, last_opened_at)
@@ -303,7 +303,7 @@ class DatabaseService {
   async addVocabularyCard(card: Omit<VocabularyCard, 'id'>): Promise<string> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const id = `vocab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = `vocab_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 
     await this.db.runAsync(`
       INSERT INTO vocabulary_cards (id, book_id, headword, lemma, source_language, target_language, source_context, translation, definition, examples, frequency, srs_state, created_at, last_reviewed_at)

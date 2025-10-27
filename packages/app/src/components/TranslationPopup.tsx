@@ -12,7 +12,7 @@ import {
   Vibration
 } from 'react-native';
 import { useTheme } from '../hooks/useTheme';
-import { BergamotService, BergamotTranslationResponse } from '../translation/BergamotService';
+import BergamotService, { BergamotTranslationResponse } from '../translation/BergamotService';
 import { TranslationPreferencesService, TranslationContext, TranslationAction } from '../services/translationPreferencesService';
 import { DictionaryService } from '../services/dictionaryService';
 
@@ -174,7 +174,7 @@ export default function TranslationPopup({
       // Word translation
       if (config.showWord && action !== 'sentence') {
         promises.push(
-          BergamotService.translate(context.selectedText, sourceLanguage, targetLanguage)
+          BergamotService.translateSentence(context.selectedText, sourceLanguage, targetLanguage)
             .then(result => { wordTranslation = result; })
             .catch(err => console.error('Word translation failed:', err))
         );
@@ -197,7 +197,7 @@ export default function TranslationPopup({
       if (config.showSentence && action !== 'word') {
         const sentenceToTranslate = context.fullSentence || context.selectedText;
         promises.push(
-          BergamotService.translate(sentenceToTranslate, sourceLanguage, targetLanguage)
+          BergamotService.translateSentence(sentenceToTranslate, sourceLanguage, targetLanguage)
             .then(result => { sentenceTranslation = result; })
             .catch(err => console.error('Sentence translation failed:', err))
         );
@@ -213,20 +213,20 @@ export default function TranslationPopup({
         translationMethod: 'bergamot'
       };
 
-      if (wordTranslation && config.showWord) {
+      if (wordTranslation && config.showWord && wordTranslation.success) {
         result.word = {
           original: context.selectedText,
-          translated: wordTranslation.translation,
+          translated: wordTranslation.translatedText || '',
           definitions: definitions.length > 0 ? definitions : undefined,
           pronunciation: definitions[0]?.pronunciation
         };
       }
 
-      if (sentenceTranslation && config.showSentence) {
+      if (sentenceTranslation && config.showSentence && sentenceTranslation.success) {
         result.sentence = {
           original: context.fullSentence || context.selectedText,
-          translated: sentenceTranslation.translation,
-          confidence: sentenceTranslation.confidence
+          translated: sentenceTranslation.translatedText || '',
+          confidence: sentenceTranslation.qualityHint ? Math.exp(sentenceTranslation.qualityHint) : undefined
         };
       }
 
