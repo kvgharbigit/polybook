@@ -194,7 +194,10 @@ export default function LanguagePacksScreen() {
       let db = null;
       
       try {
-        db = await SQLite.openDatabaseAsync(installedPack.dictionaryPath);
+        // Use filename only (same fix as languagePackService) to access the real database
+        const dbName = installedPack.manifest.dictionary.filename;
+        console.log(`📦 Opening database with filename: ${dbName} (instead of full path)`);
+        db = await SQLite.openDatabaseAsync(dbName);
         console.log(`📦 Database opened successfully`);
         
         // Check if this is a valid SQLite database

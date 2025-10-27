@@ -390,27 +390,79 @@ export class LanguagePackService {
         
         console.log(`📦 Dictionary extracted successfully: ${dictFileInfo.size} bytes`);
         
+        // CRITICAL: Copy database to expo-sqlite's default location
+        // expo-sqlite looks for databases in its own directory when using filename-only
+        console.log(`📦 Step 0: Copying database to expo-sqlite default location...`);
+        const sqliteDir = `${FileSystem.documentDirectory}SQLite/`;
+        await FileSystem.makeDirectoryAsync(sqliteDir, { intermediates: true });
+        const sqliteDbPath = `${sqliteDir}${pack.dictionary.filename}`;
+        
+        console.log(`📦 Step 0: Copying from: ${dictionaryPath}`);
+        console.log(`📦 Step 0: Copying to: ${sqliteDbPath}`);
+        
+        await FileSystem.copyAsync({
+          from: dictionaryPath,
+          to: sqliteDbPath
+        });
+        
+        const copiedFileInfo = await FileSystem.getInfoAsync(sqliteDbPath);
+        console.log(`📦 Step 0: ✅ Database copied to SQLite directory:`, copiedFileInfo);
+        
         // Database validation - real data should be available from GitHub
         console.log(`📦 Validating downloaded database...`);
         console.log(`📦 Full database path: ${dictionaryPath}`);
         console.log(`📦 Database file size: ${dictFileInfo.size} bytes`);
         try {
+          console.log(`📦 Step 1: Importing expo-sqlite module...`);
           const SQLite = await import('expo-sqlite');
+          console.log(`📦 Step 1: ✅ SQLite module imported successfully`);
           
-          // Try opening with full path first
-          console.log(`📦 Opening database with full path: ${dictionaryPath}`);
-          const db = await SQLite.openDatabaseAsync(dictionaryPath);
+          // Use filename only (same as sqliteDictionaryService.ts) to avoid creating new empty database
+          const dbName = pack.dictionary.filename;
+          console.log(`📦 Step 2: Opening database with filename: ${dbName}`);
+          console.log(`📦 Step 2: Current working directory context: ${FileSystem.documentDirectory}`);
           
+          const db = await SQLite.openDatabaseAsync(dbName);
+          console.log(`📦 Step 2: ✅ Database opened successfully`);
+          console.log(`📦 Step 2: Database object type: ${typeof db}`);
+          console.log(`📦 Step 2: Database object keys: ${Object.keys(db)}`);
+          
+          console.log(`📦 Step 3: Querying sqlite_master for table information...`);
           const tables = await db.getAllAsync("SELECT name FROM sqlite_master WHERE type='table'");
-          console.log(`📦 Available tables:`, tables.map(t => t.name));
+          console.log(`📦 Step 3: ✅ Query completed. Raw result:`, tables);
+          console.log(`📦 Step 3: Available tables:`, tables.map(t => t.name));
+          console.log(`📦 Step 3: Total tables found: ${tables.length}`);
           
+          // Also check all objects in the database
+          console.log(`📦 Step 4: Querying ALL database objects...`);
+          const allObjects = await db.getAllAsync("SELECT name, type, sql FROM sqlite_master");
+          console.log(`📦 Step 4: All database objects:`, allObjects);
+          
+          // Check database integrity
+          console.log(`📦 Step 5: Checking database integrity...`);
+          const integrityResult = await db.getAllAsync("PRAGMA integrity_check");
+          console.log(`📦 Step 5: Integrity check result:`, integrityResult);
+          
+          // Check if database is read-only or has permissions issues
+          console.log(`📦 Step 6: Checking database permissions...`);
+          try {
+            await db.getAllAsync("PRAGMA table_info(sqlite_master)");
+            console.log(`📦 Step 6: ✅ Database is readable`);
+          } catch (permError) {
+            console.error(`📦 Step 6: ❌ Database permission error:`, permError);
+          }
+          
+          // Check for both possible table schemas
+          console.log(`📦 Step 7: Analyzing table schemas...`);
           if (tables.some(t => t.name === 'dict')) {
+            console.log(`📦 Step 7: ✅ Found 'dict' table, querying count...`);
             const count = await db.getAllAsync('SELECT COUNT(*) as count FROM dict');
-            console.log(`📦 Dictionary database loaded successfully: ${count[0].count} entries`);
+            console.log(`📦 Step 7: Dictionary database loaded successfully: ${count[0].count} entries (dict table)`);
             
             // Sample a few entries to verify content
+            console.log(`📦 Step 7: Sampling entries from 'dict' table...`);
             const sample = await db.getAllAsync('SELECT lemma, def FROM dict LIMIT 3');
-            console.log(`📦 Sample entries:`, sample);
+            console.log(`📦 Step 7: Sample entries:`, sample);
             
             // Check if this looks like test data vs real data
             if (count[0].count < 100) {
@@ -420,12 +472,39 @@ export class LanguagePackService {
               console.warn(`📦 File size: ${dictFileInfo.size} bytes`);
             }
             
+            console.log(`📦 Step 8: Closing database connection...`);
             await db.closeAsync();
+            console.log(`📦 Step 8: ✅ Database closed successfully`);
+          } else if (tables.some(t => t.name === 'word')) {
+            console.log(`📦 Step 7: ✅ Found 'word' table, querying count...`);
+            const count = await db.getAllAsync('SELECT COUNT(*) as count FROM word');
+            console.log(`📦 Step 7: Dictionary database loaded successfully: ${count[0].count} entries (word table)`);
+            
+            // Sample a few entries to verify content
+            console.log(`📦 Step 7: Sampling entries from 'word' table...`);
+            const sample = await db.getAllAsync('SELECT w, substr(m, 1, 100) FROM word LIMIT 3');
+            console.log(`📦 Step 7: Sample entries:`, sample);
+            
+            console.log(`📦 Step 8: Closing database connection...`);
+            await db.closeAsync();
+            console.log(`📦 Step 8: ✅ Database closed successfully`);
           } else {
-            console.warn(`📦 Warning: No dict table found in database`);
+            console.warn(`📦 Step 7: ❌ No dict or word table found in database`);
+            console.warn(`📦 Step 7: This indicates either:`);
+            console.warn(`📦 Step 7: 1. Wrong database file opened`);
+            console.warn(`📦 Step 7: 2. Database is empty/corrupted`);
+            console.warn(`📦 Step 7: 3. expo-sqlite opened wrong file location`);
+            
+            console.log(`📦 Step 8: Closing database connection...`);
+            await db.closeAsync();
+            console.log(`📦 Step 8: ✅ Database closed successfully`);
           }
         } catch (validationError) {
-          console.error(`📦 Database validation error:`, validationError);
+          console.error(`📦 ❌ Database validation error at step:`, validationError);
+          console.error(`📦 ❌ Error type:`, typeof validationError);
+          console.error(`📦 ❌ Error message:`, validationError?.message || 'No message');
+          console.error(`📦 ❌ Error stack:`, validationError?.stack || 'No stack');
+          console.error(`📦 ❌ Full error object:`, JSON.stringify(validationError, null, 2));
           // Don't throw here - validation is optional, just log the warning
           console.warn(`📦 Warning: Database validation failed, but installation will continue`);
         }
