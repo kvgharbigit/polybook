@@ -48,6 +48,37 @@ export default function LibraryScreen() {
     );
   };
 
+  const handleDeleteAllBooks = async () => {
+    console.log('🗑️ LibraryScreen: Delete all books requested');
+    
+    Alert.alert(
+      'Delete All Books',
+      `Are you sure you want to delete all ${books.length} books from your library? This will also delete all book files and vocabulary cards and cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: () => console.log('🗑️ LibraryScreen: Delete all cancelled'),
+        },
+        {
+          text: 'Delete All',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('🗑️ LibraryScreen: Deleting all books');
+              await useAppStore.getState().deleteAllBooks();
+              console.log('🗑️ LibraryScreen: All books deleted successfully');
+              Alert.alert('Success', 'All books have been deleted from your library.');
+            } catch (error) {
+              console.error('🗑️ LibraryScreen: Error deleting all books:', error);
+              Alert.alert('Error', 'Failed to delete all books. Please try again.');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const renderBookItem = ({ item }: { item: Book }) => {
     // Calculate progress from position data (mock for now)
     const progress = item.lastPosition ? 0.25 : 0; // Will be calculated properly later
@@ -110,16 +141,26 @@ export default function LibraryScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          <FlatList
-            data={books}
-            refreshControl={
-              <RefreshControl refreshing={isLoading} onRefresh={() => useAppStore.getState().loadBooks()} />
-            }
-            renderItem={renderBookItem}
-            keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContainer}
-          />
+          <>
+            <View style={styles.headerActions}>
+              <TouchableOpacity 
+                style={styles.deleteAllButton}
+                onPress={handleDeleteAllBooks}
+              >
+                <Text style={styles.deleteAllButtonText}>Delete All ({books.length})</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={books}
+              refreshControl={
+                <RefreshControl refreshing={isLoading} onRefresh={() => useAppStore.getState().loadBooks()} />
+              }
+              renderItem={renderBookItem}
+              keyExtractor={(item) => item.id}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.listContainer}
+            />
+          </>
         )}
       </View>
     </SafeAreaView>
@@ -235,5 +276,23 @@ const createStyles = (theme: any) => StyleSheet.create({
   lastRead: {
     fontSize: 12,
     color: theme.colors.textSecondary,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 16,
+  },
+  deleteAllButton: {
+    backgroundColor: theme.colors.surface,
+    borderColor: '#ff4444',
+    borderWidth: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+  },
+  deleteAllButtonText: {
+    color: '#ff4444',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

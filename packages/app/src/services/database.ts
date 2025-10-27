@@ -481,6 +481,50 @@ class DatabaseService {
     );
   }
 
+  async deleteAllBooks(): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    // Get all books first to clean up files
+    const books = await this.getBooks();
+    
+    // Delete all books from database (CASCADE will handle related records)
+    await this.db.runAsync('DELETE FROM books');
+
+    // Clean up all book files from the file system
+    try {
+      const FileSystem = require('expo-file-system');
+      
+      for (const book of books) {
+        // Delete book file
+        try {
+          const fileInfo = await FileSystem.getInfoAsync(book.filePath);
+          if (fileInfo.exists) {
+            await FileSystem.deleteAsync(book.filePath);
+            console.log('🗑️ Database: Book file deleted:', book.filePath);
+          }
+        } catch (error) {
+          console.warn('🗑️ Database: Failed to delete book file:', book.filePath, error);
+        }
+        
+        // Delete cover file if it exists
+        if (book.coverPath) {
+          try {
+            const coverInfo = await FileSystem.getInfoAsync(book.coverPath);
+            if (coverInfo.exists) {
+              await FileSystem.deleteAsync(book.coverPath);
+              console.log('🗑️ Database: Cover file deleted:', book.coverPath);
+            }
+          } catch (error) {
+            console.warn('🗑️ Database: Failed to delete cover file:', book.coverPath, error);
+          }
+        }
+      }
+    } catch (fileError) {
+      console.warn('🗑️ Database: Failed to delete some book files:', fileError);
+      // Don't throw error here - database deletion succeeded, file cleanup is best effort
+    }
+  }
+
   async getStats(): Promise<{books: number, vocabulary: number, translations: number}> {
     if (!this.db) throw new Error('Database not initialized');
 

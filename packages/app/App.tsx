@@ -8,6 +8,10 @@ import LibraryScreen from './src/screens/LibraryScreen';
 import ReaderScreen from './src/screens/ReaderScreen';
 import VocabularyScreen from './src/screens/VocabularyScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import LanguageProfileScreen from './src/screens/LanguageProfileScreen';
+import LanguagePacksScreen from './src/screens/LanguagePacksScreen';
+import DictionaryTestScreen from './src/screens/DictionaryTestScreen';
+import TranslationPerfHarness from './src/screens/TranslationPerfHarness';
 import { useAppStore } from './src/store/appStore';
 
 function LoadingScreen() {
@@ -91,6 +95,30 @@ function AppContent() {
         return (
           <View style={styles.screenContainer}>
             <SettingsScreen />
+          </View>
+        );
+      case 'LanguageProfileScreen':
+        return (
+          <View style={styles.screenContainer}>
+            <LanguageProfileScreen />
+          </View>
+        );
+      case 'LanguagePacksScreen':
+        return (
+          <View style={styles.screenContainer}>
+            <LanguagePacksScreen />
+          </View>
+        );
+      case 'DictionaryTestScreen':
+        return (
+          <View style={styles.screenContainer}>
+            <DictionaryTestScreen />
+          </View>
+        );
+      case 'TranslationPerfHarness':
+        return (
+          <View style={styles.screenContainer}>
+            <TranslationPerfHarness />
           </View>
         );
       default:

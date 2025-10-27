@@ -69,18 +69,11 @@ get_optimal_source() {
             SIZE="2.1MB"
             REASON="Wiktionary bilingual - rich definitions, examples, IPA, bidirectional"
             ;;
-        "en-en"|"eng-eng"|"english")
-            SOURCE="wiktionary"
-            URL="https://raw.githubusercontent.com/Vuizur/Wiktionary-Dictionaries/master/English-English%20Wiktionary%20dictionary%20stardict.tar.gz"
-            SIZE="20.8MB"
-            REASON="Wiktionary monolingual - comprehensive English definitions"
-            ;;
         *)
             echo "❌ Unknown language pair: $PAIR"
             echo "🎯 SUPPORTED TOP 10 LANGUAGE PAIRS (Wiktionary verified):"
             echo "   ✅ English ↔ Spanish, French, German, Italian, Portuguese, Russian"
             echo "   ✅ English ↔ Chinese, Japanese, Korean"
-            echo "   ✅ English → English (monolingual)"
             echo "   📝 All sources verified and functional from Vuizur/Wiktionary-Dictionaries"
             exit 1
             ;;

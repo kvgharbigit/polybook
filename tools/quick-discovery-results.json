@@ -1,0 +1,179 @@
+{
+  "metadata": {
+    "created": "2025-10-26 22:24:54 UTC",
+    "languages_target": [
+      "eng",
+      "spa",
+      "fra",
+      "deu",
+      "ita",
+      "por",
+      "rus"
+    ]
+  },
+  "freedict": {
+    "eng-spa": {
+      "url": "https://download.freedict.org/dictionaries/eng-spa/2024.10.10/freedict-eng-spa-2024.10.10.stardict.tar.xz",
+      "size_mb": 4.5,
+      "status": "verified"
+    },
+    "spa-eng": {
+      "url": "https://download.freedict.org/dictionaries/spa-eng/0.3.1/freedict-spa-eng-0.3.1.stardict.tar.xz",
+      "size_mb": 0.1,
+      "status": "verified"
+    },
+    "eng-fra": {
+      "url": "https://download.freedict.org/dictionaries/eng-fra/0.1.6/freedict-eng-fra-0.1.6.stardict.tar.xz",
+      "size_mb": 0.2,
+      "status": "verified"
+    },
+    "fra-eng": {
+      "url": "https://download.freedict.org/dictionaries/fra-eng/0.4.1/freedict-fra-eng-0.4.1.stardict.tar.xz",
+      "size_mb": 0.2,
+      "status": "verified"
+    },
+    "eng-deu": {
+      "url": "https://download.freedict.org/dictionaries/eng-deu/1.9-fd1/freedict-eng-deu-1.9-fd1.stardict.tar.xz",
+      "size_mb": 25.6,
+      "status": "verified"
+    },
+    "deu-eng": {
+      "url": "https://download.freedict.org/dictionaries/deu-eng/1.9-fd1/freedict-deu-eng-1.9-fd1.stardict.tar.xz",
+      "size_mb": 34.7,
+      "status": "verified"
+    },
+    "eng-ara": {
+      "url": "https://download.freedict.org/dictionaries/eng-ara/0.6.3/freedict-eng-ara-0.6.3.stardict.tar.xz",
+      "size_mb": 1.1,
+      "status": "verified"
+    },
+    "ara-eng": {
+      "url": "https://download.freedict.org/dictionaries/ara-eng/0.6.3/freedict-ara-eng-0.6.3.stardict.tar.xz",
+      "size_mb": 0.9,
+      "status": "verified"
+    }
+  },
+  "wiktionary": {
+    "eng-eng": {
+      "url": "https://github.com/Vuizur/Wiktionary-Dictionaries/raw/master/English-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_mb": 20.8,
+      "status": "verified"
+    },
+    "fra-eng": {
+      "url": "https://github.com/Vuizur/Wiktionary-Dictionaries/raw/master/French-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_mb": 3.2,
+      "status": "verified"
+    },
+    "deu-eng": {
+      "url": "https://github.com/Vuizur/Wiktionary-Dictionaries/raw/master/German-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_mb": 6.9,
+      "status": "verified"
+    },
+    "ita-eng": {
+      "url": "https://github.com/Vuizur/Wiktionary-Dictionaries/raw/master/Italian-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_mb": 5.3,
+      "status": "verified"
+    },
+    "por-eng": {
+      "url": "https://github.com/Vuizur/Wiktionary-Dictionaries/raw/master/Portuguese-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_mb": 2.6,
+      "status": "verified"
+    },
+    "rus-eng": {
+      "url": "https://github.com/Vuizur/Wiktionary-Dictionaries/raw/master/Russian-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_mb": 4.2,
+      "status": "verified"
+    },
+    "ara-eng": {
+      "url": "https://github.com/Vuizur/Wiktionary-Dictionaries/raw/master/Arabic-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_mb": 2.8,
+      "status": "verified"
+    },
+    "hin-eng": {
+      "url": "https://github.com/Vuizur/Wiktionary-Dictionaries/raw/master/Hindi-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_mb": 1.0,
+      "status": "verified"
+    },
+    "zho-eng": {
+      "url": "https://github.com/Vuizur/Wiktionary-Dictionaries/raw/master/Chinese-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_mb": 4.6,
+      "status": "verified"
+    }
+  },
+  "bergamot": {
+    "en-es": {
+      "url": "https://data.statmt.org/bergamot/models/esen/enes.student.tiny11.v1.a7203a8f8e9daea8.tar.gz",
+      "size_mb": 14.1,
+      "status": "verified"
+    },
+    "es-en": {
+      "url": "https://data.statmt.org/bergamot/models/esen/esen.student.tiny11.v1.09576f06d0ad805e.tar.gz",
+      "size_mb": 14.9,
+      "status": "verified"
+    },
+    "en-fr": {
+      "url": "https://data.statmt.org/bergamot/models/fren/enfr.student.tiny11.v1.805d112122af03d0.tar.gz",
+      "size_mb": 16.1,
+      "status": "verified"
+    },
+    "fr-en": {
+      "url": "https://data.statmt.org/bergamot/models/fren/fren.student.tiny11.v1.dccea16d03c0a389.tar.gz",
+      "size_mb": 17.0,
+      "status": "verified"
+    },
+    "en-de": {
+      "url": "https://data.statmt.org/bergamot/models/deen/ende.student.tiny11.v2.93821e13b3c511b5.tar.gz",
+      "size_mb": 14.5,
+      "status": "verified"
+    }
+  },
+  "summary": {
+    "total_freedict": 8,
+    "total_wiktionary": 9,
+    "total_bergamot": 5,
+    "language_coverage": {
+      "eng": {
+        "name": "English",
+        "dictionaries": 17,
+        "translations": 5,
+        "total": 22
+      },
+      "spa": {
+        "name": "Spanish",
+        "dictionaries": 2,
+        "translations": 0,
+        "total": 2
+      },
+      "fra": {
+        "name": "French",
+        "dictionaries": 3,
+        "translations": 2,
+        "total": 5
+      },
+      "deu": {
+        "name": "German",
+        "dictionaries": 3,
+        "translations": 1,
+        "total": 4
+      },
+      "ita": {
+        "name": "Italian",
+        "dictionaries": 1,
+        "translations": 0,
+        "total": 1
+      },
+      "por": {
+        "name": "Portuguese",
+        "dictionaries": 1,
+        "translations": 0,
+        "total": 1
+      },
+      "rus": {
+        "name": "Russian",
+        "dictionaries": 1,
+        "translations": 0,
+        "total": 1
+      }
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "generatedAt": "2025-10-27T00:46:12.454Z",
+    "totalEntries": 1,
+    "languagePacks": [
+      "en-es"
+    ],
+    "homeLanguage": "en",
+    "targetLanguage": "es",
+    "source": "Wiktextract (kaikki.org)",
+    "originalSources": "Wiktionary CC-BY-SA and GFDL",
+    "coverage": {
+      "home_language_entries": 1,
+      "cross_language_entries": 0,
+      "with_translations": 1
+    }
+  },
+  "entries": [
+    {
+      "id": "fallback_en",
+      "headword": "fallback",
+      "displayHeadword": "fallback",
+      "sourceLang": "en",
+      "targetLang": "es",
+      "pos": "noun",
+      "translations": [
+        "respaldo"
+      ],
+      "definitions": [
+        "A fallback or backup plan"
+      ],
+      "examples": [],
+      "synonyms": [],
+      "pairCode": "en-es",
+      "frequency": 1000
+    }
+  ]
+}

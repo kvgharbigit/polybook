@@ -1,0 +1,144 @@
+{
+  "strategy_name": "Top 7 Languages Optimal Dictionary Strategy",
+  "created": "2024-10-27",
+  "languages_supported": [
+    "English", "Spanish", "French", "German", 
+    "Italian", "Portuguese", "Russian"
+  ],
+  "optimal_sources": {
+    "eng-spa": {
+      "choice": "freedict",
+      "url": "https://download.freedict.org/dictionaries/eng-spa/2024.10.10/freedict-eng-spa-2024.10.10.stardict.tar.xz",
+      "size_mb": 4.5,
+      "reason": "FreeDict has good size and coverage"
+    },
+    "spa-eng": {
+      "choice": "freedict", 
+      "url": "https://download.freedict.org/dictionaries/spa-eng/0.3.1/freedict-spa-eng-0.3.1.stardict.tar.xz",
+      "size_mb": 0.1,
+      "reason": "Only option available, despite small size",
+      "warning": "Very small - limited coverage"
+    },
+    "eng-fra": {
+      "choice": "wiktionary",
+      "url": "https://github.com/Vuizur/Wiktionary-Dictionaries/raw/master/French-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_mb": 3.2,
+      "reason": "Wiktionary 16x larger than FreeDict (3.2MB vs 0.2MB)"
+    },
+    "fra-eng": {
+      "choice": "wiktionary",
+      "url": "https://github.com/Vuizur/Wiktionary-Dictionaries/raw/master/French-English%20Wiktionary%20dictionary%20stardict.tar.gz", 
+      "size_mb": 3.2,
+      "reason": "Same as eng-fra - bidirectional usage"
+    },
+    "eng-deu": {
+      "choice": "freedict",
+      "url": "https://download.freedict.org/dictionaries/eng-deu/1.9-fd1/freedict-eng-deu-1.9-fd1.stardict.tar.xz",
+      "size_mb": 25.6,
+      "reason": "FreeDict excellent - 4x larger than Wiktionary"
+    },
+    "deu-eng": {
+      "choice": "freedict",
+      "url": "https://download.freedict.org/dictionaries/deu-eng/1.9-fd1/freedict-deu-eng-1.9-fd1.stardict.tar.xz",
+      "size_mb": 34.7,
+      "reason": "FreeDict excellent - 5x larger than Wiktionary"
+    },
+    "eng-ita": {
+      "choice": "wiktionary",
+      "url": "https://github.com/Vuizur/Wiktionary-Dictionaries/raw/master/Italian-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_mb": 5.3,
+      "reason": "Only option available"
+    },
+    "ita-eng": {
+      "choice": "wiktionary",
+      "url": "https://github.com/Vuizur/Wiktionary-Dictionaries/raw/master/Italian-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_mb": 5.3,
+      "reason": "Same as eng-ita - bidirectional usage"
+    },
+    "eng-por": {
+      "choice": "wiktionary",
+      "url": "https://github.com/Vuizur/Wiktionary-Dictionaries/raw/master/Portuguese-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_mb": 2.6,
+      "reason": "Only option available"
+    },
+    "por-eng": {
+      "choice": "wiktionary",
+      "url": "https://github.com/Vuizur/Wiktionary-Dictionaries/raw/master/Portuguese-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_mb": 2.6,
+      "reason": "Same as eng-por - bidirectional usage"
+    },
+    "eng-rus": {
+      "choice": "wiktionary",
+      "url": "https://github.com/Vuizur/Wiktionary-Dictionaries/raw/master/Russian-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_mb": 4.2,
+      "reason": "Only good option (FreeDict not working)"
+    },
+    "rus-eng": {
+      "choice": "wiktionary",
+      "url": "https://github.com/Vuizur/Wiktionary-Dictionaries/raw/master/Russian-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_mb": 4.2,
+      "reason": "Same as eng-rus - bidirectional usage"
+    }
+  },
+  "monolingual_dictionaries": {
+    "eng": {
+      "choice": "wiktionary",
+      "url": "https://github.com/Vuizur/Wiktionary-Dictionaries/raw/master/English-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_mb": 20.8,
+      "reason": "Only monolingual option available"
+    }
+  },
+  "translation_models": {
+    "en-es": {
+      "choice": "bergamot",
+      "url": "https://data.statmt.org/bergamot/models/esen/enes.student.tiny11.v1.a7203a8f8e9daea8.tar.gz",
+      "size_mb": 14.1
+    },
+    "es-en": {
+      "choice": "bergamot",
+      "url": "https://data.statmt.org/bergamot/models/esen/esen.student.tiny11.v1.09576f06d0ad805e.tar.gz",
+      "size_mb": 14.9
+    },
+    "en-fr": {
+      "choice": "bergamot",
+      "url": "https://data.statmt.org/bergamot/models/fren/enfr.student.tiny11.v1.805d112122af03d0.tar.gz",
+      "size_mb": 16.1
+    },
+    "fr-en": {
+      "choice": "bergamot", 
+      "url": "https://data.statmt.org/bergamot/models/fren/fren.student.tiny11.v1.dccea16d03c0a389.tar.gz",
+      "size_mb": 17.0
+    },
+    "en-de": {
+      "choice": "bergamot",
+      "url": "https://data.statmt.org/bergamot/models/deen/ende.student.tiny11.v2.93821e13b3c511b5.tar.gz",
+      "size_mb": 14.5
+    }
+  },
+  "coverage_summary": {
+    "excellent_support": ["English", "French", "German"],
+    "good_support": ["Spanish"],
+    "basic_support": ["Italian", "Portuguese", "Russian"],
+    "total_bilingual_pairs": 12,
+    "total_monolingual": 1,
+    "total_translation_models": 5
+  },
+  "implementation_priority": [
+    "eng-spa (4.5MB) - Core Spanish support",
+    "eng-deu (25.6MB) - Excellent German coverage", 
+    "deu-eng (34.7MB) - Excellent German coverage",
+    "eng-fra via Wiktionary (3.2MB) - Better than tiny FreeDict",
+    "eng-ita (5.3MB) - Italian support",
+    "eng-por (2.6MB) - Portuguese support", 
+    "eng-rus (4.2MB) - Russian support",
+    "en-es, es-en Bergamot models - Translation",
+    "en-fr, fr-en Bergamot models - Translation",
+    "en-de Bergamot model - Translation"
+  ],
+  "build_strategy": {
+    "phase_1": "Build and test top 6 dictionary pairs",
+    "phase_2": "Add Bergamot translation models",
+    "phase_3": "Add remaining language pairs",
+    "testing": "Focus on eng-spa, eng-deu, and eng-fra as primary test cases"
+  }
+}

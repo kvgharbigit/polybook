@@ -29,6 +29,7 @@ interface AppActions {
   loadBooks: () => Promise<void>;
   addBook: (book: Omit<Book, 'id'>) => Promise<string>;
   deleteBook: (id: string) => Promise<void>;
+  deleteAllBooks: () => Promise<void>;
   setCurrentBook: (book: Book | null) => void;
   
   // Reading actions
@@ -111,6 +112,19 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }));
     } catch (error) {
       console.error('Failed to delete book:', error);
+      throw error;
+    }
+  },
+
+  deleteAllBooks: async () => {
+    try {
+      await db.deleteAllBooks();
+      set({
+        books: [],
+        currentBook: null,
+      });
+    } catch (error) {
+      console.error('Failed to delete all books:', error);
       throw error;
     }
   },

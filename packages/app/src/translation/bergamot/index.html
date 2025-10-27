@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <script src="./bergamot-translator-worker.js"></script>
+  <script>
+    let ready = false;
+    let engine;
+
+    function post(obj){
+      window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify(obj));
+    }
+
+    async function init(){
+      if (ready) return;
+      try {
+        // "createBergamotModule" is provided by worker.js (Emscripten factory)
+        engine = await createBergamotModule({ /* Emscripten opts: locateFile, etc. */ });
+        // TODO: load active model files from ./models/{pair}/ ...
+        ready = true;
+        post({ type: 'ready' });
+      } catch (e) {
+        post({ type: 'error', id: 'init', error: String(e?.message || e) });
+      }
+    }
+
+    async function translate({id, text, from, to}){
+      try {
+        if (!ready) await init();
+        // NOTE: actual API may differ depending on your binding
+        const result = engine.translate(text, from, to);
+        const qualityHint = (result.logProb && result.tokens)
+          ? (result.logProb / Math.max(1, result.tokens))
+          : null;
+        post({ type: 'result', id, text: result.text, qualityHint });
+      } catch (e) {
+        post({ type: 'error', id, error: String(e?.message || e) });
+      }
+    }
+
+    window.addEventListener('message', (ev) => {
+      try {
+        const msg = JSON.parse(ev.data || '{}');
+        if (msg.type === 'translate') translate(msg);
+        if (msg.type === 'warmup') init();
+      } catch {}
+    });
+
+    // Warm start
+    init();
+  </script>
+</head>
+<body></body>
+</html>

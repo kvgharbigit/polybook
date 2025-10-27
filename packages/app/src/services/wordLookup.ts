@@ -1,4 +1,6 @@
 import { WordDefinition } from '../components/TranslationPopup';
+import DictionaryService from './bilingualDictionaryService';
+import UserLanguageProfileService from './userLanguageProfileService';
 
 // Basic word definitions for common words - will be expanded to real dictionary later
 const BASIC_DICTIONARY: Record<string, WordDefinition> = {
@@ -507,11 +509,80 @@ const BASIC_DICTIONARY: Record<string, WordDefinition> = {
 };
 
 export class WordLookupService {
+  private static initialized = false;
+
+  /**
+   * Initialize the word lookup service
+   */
+  static async initialize(): Promise<void> {
+    if (this.initialized) return;
+    
+    try {
+      await DictionaryService.initialize();
+      this.initialized = true;
+      console.log('💬 WordLookupService: Initialized with new dictionary system');
+    } catch (error) {
+      console.error('💬 WordLookupService: Initialization error:', error);
+    }
+  }
   
   /**
-   * Look up a word definition
+   * Look up a word definition using the new bilingual dictionary
    */
-  static async lookupWord(word: string): Promise<WordDefinition | null> {
+  static async lookupWord(word: string, context?: string): Promise<WordDefinition | null> {
+    try {
+      // Ensure services are initialized
+      await this.initialize();
+
+      // Get user profile
+      const userProfile = await UserLanguageProfileService.getUserProfile();
+      
+      // Use new dictionary service
+      const response = await DictionaryService.lookupWord({
+        word,
+        userProfile,
+        context
+      });
+
+      if (response.success && response.primaryDefinition) {
+        // Convert new format to old format for compatibility
+        const converted: WordDefinition = {
+          word: response.primaryDefinition.word,
+          pronunciation: response.primaryDefinition.pronunciation?.ipa,
+          definitions: response.primaryDefinition.definitions.map(def => ({
+            partOfSpeech: def.partOfSpeech,
+            meaning: def.definition,
+            example: def.example
+          })),
+          frequency: response.primaryDefinition.frequency
+        };
+
+        // Add translations as the first "definition" if available
+        if (response.primaryDefinition.translations.length > 0) {
+          const mainTranslation = response.primaryDefinition.translations[0];
+          converted.definitions.unshift({
+            partOfSpeech: 'translation',
+            meaning: `${mainTranslation.word} (${Math.round(mainTranslation.confidence * 100)}% confident)`,
+            example: `Translation to ${UserLanguageProfileService.getLanguageDisplayName(mainTranslation.language, userProfile.nativeLanguage)}`
+          });
+        }
+
+        return converted;
+      }
+
+      // Fallback to basic dictionary
+      return this.lookupWordBasic(word);
+
+    } catch (error) {
+      console.error('💬 WordLookupService: Lookup error:', error);
+      return this.lookupWordBasic(word);
+    }
+  }
+
+  /**
+   * Fallback to basic dictionary lookup
+   */
+  private static async lookupWordBasic(word: string): Promise<WordDefinition | null> {
     // Simulate network delay for realistic experience
     await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 500));
     

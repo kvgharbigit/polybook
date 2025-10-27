@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '../navigation/SimpleNavigator';
 import { useTheme } from '../hooks/useTheme';
 import { useFont } from '../hooks/useFont';
 import { ttsService, TTSVoice } from '../services/ttsService';
 import { Theme } from '@polybook/shared/src/types';
+import LanguageSwitcher from '../components/LanguageSwitcher';
+import LanguagePackSettings from '../components/LanguagePackSettings';
 
 export default function SettingsScreen() {
-  const { goBack } = useNavigation();
+  const { goBack, navigate } = useNavigation();
   const { theme, setTheme, currentThemeName } = useTheme();
   const { 
     settings: fontSettings, 
@@ -26,6 +28,7 @@ export default function SettingsScreen() {
   const [currentVoice, setCurrentVoice] = useState<TTSVoice | undefined>();
   const [ttsRate, setTtsRate] = useState(1.0);
   const [ttsPitch, setTtsPitch] = useState(1.0);
+  const [showLanguagePackSettings, setShowLanguagePackSettings] = useState(false);
 
   useEffect(() => {
     loadTTSSettings();
@@ -234,6 +237,88 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Language & Dictionary Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Language & Dictionary</Text>
+          
+          {/* Quick Language Switcher */}
+          <LanguageSwitcher onLanguageChanged={(profile) => {
+            console.log('Language changed to:', profile.nativeLanguage);
+          }} />
+          
+          <TouchableOpacity
+            style={styles.navigationItem}
+            onPress={() => {
+              navigate('LanguageProfileScreen');
+            }}
+          >
+            <View style={styles.navigationItemContent}>
+              <Text style={styles.navigationItemIcon}>🌐</Text>
+              <View style={styles.navigationItemText}>
+                <Text style={styles.navigationItemTitle}>Language Profile</Text>
+                <Text style={styles.navigationItemDescription}>
+                  Set your native language and learning preferences
+                </Text>
+              </View>
+              <Text style={styles.navigationItemArrow}>→</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.navigationItem}
+            onPress={() => {
+              navigate('LanguagePacksScreen');
+            }}
+          >
+            <View style={styles.navigationItemContent}>
+              <Text style={styles.navigationItemIcon}>📦</Text>
+              <View style={styles.navigationItemText}>
+                <Text style={styles.navigationItemTitle}>Language Packs</Text>
+                <Text style={styles.navigationItemDescription}>
+                  Download offline dictionaries
+                </Text>
+              </View>
+              <Text style={styles.navigationItemArrow}>→</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.navigationItem}
+            onPress={() => {
+              navigate('DictionaryTestScreen');
+            }}
+          >
+            <View style={styles.navigationItemContent}>
+              <Text style={styles.navigationItemIcon}>🧪</Text>
+              <View style={styles.navigationItemText}>
+                <Text style={styles.navigationItemTitle}>Dictionary Test</Text>
+                <Text style={styles.navigationItemDescription}>
+                  Test the new dictionary system (temporary)
+                </Text>
+              </View>
+              <Text style={styles.navigationItemArrow}>→</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.navigationItem}
+            onPress={() => {
+              navigate('TranslationPerfHarness');
+            }}
+          >
+            <View style={styles.navigationItemContent}>
+              <Text style={styles.navigationItemIcon}>🚀</Text>
+              <View style={styles.navigationItemText}>
+                <Text style={styles.navigationItemTitle}>Bergamot Performance Test</Text>
+                <Text style={styles.navigationItemDescription}>
+                  Test WebView-based translation performance
+                </Text>
+              </View>
+              <Text style={styles.navigationItemArrow}>→</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
         {/* Reading Features Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Reading Features</Text>
@@ -352,6 +437,22 @@ export default function SettingsScreen() {
         {/* Bottom Spacing */}
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Language Pack Settings Modal */}
+      <Modal
+        visible={showLanguagePackSettings}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onShow={() => console.log('📦 Language Pack Modal opened')}
+        onDismiss={() => console.log('📦 Language Pack Modal dismissed')}
+      >
+        <LanguagePackSettings
+          onClose={() => {
+            console.log('🔄 Closing Language Pack Settings...');
+            setShowLanguagePackSettings(false);
+          }}
+        />
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -601,5 +702,41 @@ const createStyles = (theme: any) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: theme.colors.background,
+  },
+  navigationItem: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  navigationItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  navigationItemIcon: {
+    fontSize: 24,
+    marginRight: 16,
+  },
+  navigationItemText: {
+    flex: 1,
+  },
+  navigationItemTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginBottom: 4,
+  },
+  navigationItemDescription: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    lineHeight: 18,
+  },
+  navigationItemArrow: {
+    fontSize: 18,
+    color: theme.colors.textSecondary,
+    marginLeft: 8,
   },
 });

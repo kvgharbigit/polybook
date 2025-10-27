@@ -107,13 +107,13 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
     sourceLanguage: 'es',
     targetLanguage: 'en',
     totalSize: 5090394, // Real database ZIP size (5MB)
-    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/latest/download/es-en.sqlite.zip',
+    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/latest/download/es-en-full.sqlite.zip',
     checksum: 'real_database_checksum_here',
     dictionary: {
       filename: 'es-en.sqlite',
       size: 14680064, // Real SQLite database size  
       checksum: 'real_database_checksum_here',
-      entries: 10000, // Real dictionary entries
+      entries: 43638, // Full dictionary entries from natural build
       source: 'wiktionary'
     },
     models: {
@@ -138,7 +138,7 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
         maxInputLength: 512
       }
     },
-    description: 'Complete language pack with Wiktionary dictionary (14k entries) for word lookup and Bergamot models for sentence translation.',
+    description: 'Complete language pack with Wiktionary dictionary (43k entries) for word lookup and Bergamot models for sentence translation.',
     releaseDate: '2024-01-15T00:00:00Z',
     minAppVersion: '1.0.0'
   },
@@ -225,6 +225,135 @@ export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
       }
     },
     description: 'French-English language pack with Wiktionary dictionary and neural translation models.',
+    releaseDate: '2024-01-15T00:00:00Z',
+    minAppVersion: '1.0.0'
+  },
+
+  {
+    id: 'ko-en',
+    name: 'Korean ↔ English',
+    version: '1.0.0',
+    sourceLanguage: 'ko',
+    targetLanguage: 'en',
+    totalSize: 2167218, // 2.1MB
+    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/latest/download/ko-en.sqlite.zip',
+    checksum: 'korean_database_checksum_here',
+    dictionary: {
+      filename: 'ko-en.sqlite',
+      size: 2167218, // 2.1MB
+      checksum: 'korean_database_checksum_here',
+      entries: 15000, // Estimated
+      source: 'wiktionary'
+    },
+    models: {
+      sourceToTarget: {
+        filename: 'ko-en.bergamot',
+        size: 90 * 1024 * 1024, // ~90MB
+        checksum: 'placeholder_checksum_ko_en_model',
+        quality: 'balanced',
+        estimatedSpeed: 120, // words per second
+        memoryUsage: 220, // MB
+        beamSize: 6, // Larger beam for Korean
+        maxInputLength: 256
+      },
+      targetToSource: {
+        filename: 'en-ko.bergamot',
+        size: 90 * 1024 * 1024, // ~90MB
+        checksum: 'placeholder_checksum_en_ko_model',
+        quality: 'balanced',
+        estimatedSpeed: 120,
+        memoryUsage: 220,
+        beamSize: 6,
+        maxInputLength: 256
+      }
+    },
+    description: 'Korean-English language pack with Wiktionary dictionary and specialized neural translation models.',
+    releaseDate: '2024-01-15T00:00:00Z',
+    minAppVersion: '1.0.0'
+  },
+
+  {
+    id: 'ar-en',
+    name: 'Arabic ↔ English',
+    version: '1.0.0',
+    sourceLanguage: 'ar',
+    targetLanguage: 'en',
+    totalSize: 2982353, // 2.9MB
+    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/latest/download/ar-en.sqlite.zip',
+    checksum: 'arabic_database_checksum_here',
+    dictionary: {
+      filename: 'ar-en.sqlite',
+      size: 2982353, // 2.9MB
+      checksum: 'arabic_database_checksum_here',
+      entries: 18000, // Estimated
+      source: 'wiktionary'
+    },
+    models: {
+      sourceToTarget: {
+        filename: 'ar-en.bergamot',
+        size: 95 * 1024 * 1024, // ~95MB
+        checksum: 'placeholder_checksum_ar_en_model',
+        quality: 'balanced',
+        estimatedSpeed: 110, // words per second
+        memoryUsage: 230, // MB
+        beamSize: 6, // Larger beam for Arabic
+        maxInputLength: 256
+      },
+      targetToSource: {
+        filename: 'en-ar.bergamot',
+        size: 95 * 1024 * 1024, // ~95MB
+        checksum: 'placeholder_checksum_en_ar_model',
+        quality: 'balanced',
+        estimatedSpeed: 110,
+        memoryUsage: 230,
+        beamSize: 6,
+        maxInputLength: 256
+      }
+    },
+    description: 'Arabic-English language pack with Wiktionary dictionary and specialized neural translation models.',
+    releaseDate: '2024-01-15T00:00:00Z',
+    minAppVersion: '1.0.0'
+  },
+
+  {
+    id: 'hi-en',
+    name: 'Hindi ↔ English',
+    version: '1.0.0',
+    sourceLanguage: 'hi',
+    targetLanguage: 'en',
+    totalSize: 1059616, // 1.0MB
+    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/latest/download/hi-en.sqlite.zip',
+    checksum: 'hindi_database_checksum_here',
+    dictionary: {
+      filename: 'hi-en.sqlite',
+      size: 1059616, // 1.0MB
+      checksum: 'hindi_database_checksum_here',
+      entries: 8000, // Estimated
+      source: 'wiktionary'
+    },
+    models: {
+      sourceToTarget: {
+        filename: 'hi-en.bergamot',
+        size: 85 * 1024 * 1024, // ~85MB
+        checksum: 'placeholder_checksum_hi_en_model',
+        quality: 'balanced',
+        estimatedSpeed: 130, // words per second
+        memoryUsage: 210, // MB
+        beamSize: 5,
+        maxInputLength: 256
+      },
+      targetToSource: {
+        filename: 'en-hi.bergamot',
+        size: 85 * 1024 * 1024, // ~85MB
+        checksum: 'placeholder_checksum_en_hi_model',
+        quality: 'balanced',
+        estimatedSpeed: 130,
+        memoryUsage: 210,
+        beamSize: 5,
+        maxInputLength: 256
+      }
+    },
+    description: 'Hindi-English language pack with Wiktionary dictionary and neural translation models.',
     releaseDate: '2024-01-15T00:00:00Z',
     minAppVersion: '1.0.0'
   },

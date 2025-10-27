@@ -18,12 +18,15 @@
 
     function post(type, payload) {
       const message = { type, ...payload };
-      console.log('🌐 WebView: Posting message:', type, payload);
       if (window.ReactNativeWebView) {
         window.ReactNativeWebView.postMessage(JSON.stringify(message));
-      } else {
-        console.warn('🌐 WebView: ReactNativeWebView not available');
       }
+    }
+    
+    // Custom console log that sends to React Native
+    function log(message, ...args) {
+      const fullMessage = message + (args.length > 0 ? ' ' + args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ') : '');
+      post('log', { message: fullMessage });
     }
 
     function updateStatus(message) {
@@ -80,8 +83,10 @@
                 fontName: item.fontName
               }));
 
+            log(`Raw PDF text items from page ${pageNum}:`, textItems.map(item => item.text));
+
             if (textItems.length === 0) {
-              console.log(`Page ${pageNum} has no text content (possibly scanned)`);
+              log(`Page ${pageNum} has no text content (possibly scanned)`);
               continue;
             }
 
@@ -96,6 +101,8 @@
             let pageText = '';
             let lastY = null;
 
+            log(`Page ${pageNum} has ${sortedItems.length} text items`);
+            
             for (const item of sortedItems) {
               const text = item.text.trim();
               if (!text) continue;
@@ -117,6 +124,10 @@
               .replace(/(\w)-\s*\n(\w)/g, '$1$2') // Fix hyphenated words
               .trim();
 
+            log(`Page ${pageNum} RAW TEXT CONTENT:`, pageText);
+            log(`Page ${pageNum} CLEANED TEXT:`, cleanText);
+            log(`Page ${pageNum} text length: ${cleanText.length} characters`);
+
             if (cleanText.length > 0) {
               pages.push(cleanText);
 
@@ -127,7 +138,8 @@
                 .filter(p => p.length > 0);
 
               // Add paragraphs as blocks
-              paragraphs.forEach(paragraph => {
+              paragraphs.forEach((paragraph, pIndex) => {
+                log(`Page ${pageNum}, Paragraph ${pIndex} FULL TEXT:`, paragraph);
                 blocks.push({
                   type: 'paragraph',
                   text: paragraph,
@@ -139,6 +151,8 @@
             // Stream partial results every 5 pages
             if (pageNum % 5 === 0 || pageNum === pdf.numPages) {
               if (blocks.length > 0) {
+                log(`Sending chunk with ${blocks.length} blocks`);
+                log(`CHUNK BLOCKS FULL TEXT:`, blocks.map((block, i) => `Block ${i}: "${block.text}"`));
                 post('chunk', { blocks: [...blocks] });
                 blocks.length = 0; // Clear for next batch
               }
@@ -249,11 +263,19 @@
     // Message protocol: {cmd: 'extract', base64: '...', opts: {...}}
     document.addEventListener('message', (event) => {
       try {
+        console.log('🌐 WebView: Received document message:', event.data);
         const msg = JSON.parse(event.data);
-        if (msg.cmd === 'extract') {
+        console.log('🌐 WebView: Parsed message:', msg);
+        
+        if (msg.cmd === 'test') {
+          log('Test command received, communication working!');
+          post('status', { message: '✅ WebView communication test successful' });
+        } else if (msg.cmd === 'extract') {
+          log('Extract command received, starting extraction...');
           extractPolyDoc(msg.base64, msg.opts || {});
         }
       } catch (error) {
+        console.error('🌐 WebView: Error handling document message:', error);
         post('error', { message: 'Bad message: ' + error });
       }
     });
@@ -261,16 +283,25 @@
     // Also listen for WebView postMessage (different event in some cases)
     window.addEventListener('message', (event) => {
       try {
+        console.log('🌐 WebView: Received window message:', event.data);
         const msg = JSON.parse(event.data);
-        if (msg.cmd === 'extract') {
+        console.log('🌐 WebView: Parsed window message:', msg);
+        
+        if (msg.cmd === 'test') {
+          log('Test command received via window, communication working!');
+          post('status', { message: '✅ WebView communication test successful' });
+        } else if (msg.cmd === 'extract') {
+          log('Extract command received via window, starting extraction...');
           extractPolyDoc(msg.base64, msg.opts || {});
         }
       } catch (error) {
+        console.error('🌐 WebView: Error handling window message:', error);
         post('error', { message: 'Bad message: ' + error });
       }
     });
 
     updateStatus('🚀 PDF extractor ready');
+    log('PDF extractor script loaded and ready');
   </script>
 </body>
 </html>

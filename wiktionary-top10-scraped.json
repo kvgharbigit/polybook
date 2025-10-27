@@ -1,0 +1,241 @@
+{
+  "source": "wiktionary_vuizur_top10",
+  "scraped_at": "2025-10-26 23:02:23 UTC",
+  "target_languages": [
+    "English",
+    "Spanish",
+    "French",
+    "German",
+    "Italian",
+    "Portuguese",
+    "Russian",
+    "Chinese",
+    "Japanese",
+    "Korean"
+  ],
+  "total_dictionaries_found": 10,
+  "languages_covered": [
+    "zh",
+    "pt",
+    "ru",
+    "ko",
+    "en",
+    "ja",
+    "de",
+    "fr",
+    "es",
+    "it"
+  ],
+  "dictionaries": {
+    "en-en": {
+      "pair": "en-en",
+      "lang1": {
+        "code": "en",
+        "name": "English",
+        "full_name": "English"
+      },
+      "lang2": {
+        "code": "en",
+        "name": "English",
+        "full_name": "English"
+      },
+      "source": "wiktionary_vuizur",
+      "filename": "English-English Wiktionary dictionary stardict.tar.gz",
+      "url": "https://raw.githubusercontent.com/Vuizur/Wiktionary-Dictionaries/master/English-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_bytes": 21839699,
+      "size_mb": 20.8,
+      "type": "monolingual",
+      "bidirectional": true,
+      "priority": "high"
+    },
+    "de-en": {
+      "pair": "de-en",
+      "lang1": {
+        "code": "de",
+        "name": "German",
+        "full_name": "German"
+      },
+      "lang2": {
+        "code": "en",
+        "name": "English",
+        "full_name": "English"
+      },
+      "source": "wiktionary_vuizur",
+      "filename": "German-English Wiktionary dictionary stardict.tar.gz",
+      "url": "https://raw.githubusercontent.com/Vuizur/Wiktionary-Dictionaries/master/German-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_bytes": 7276356,
+      "size_mb": 6.9,
+      "type": "bilingual",
+      "bidirectional": true,
+      "priority": "high"
+    },
+    "ja-en": {
+      "pair": "ja-en",
+      "lang1": {
+        "code": "ja",
+        "name": "Japanese",
+        "full_name": "Japanese"
+      },
+      "lang2": {
+        "code": "en",
+        "name": "English",
+        "full_name": "English"
+      },
+      "source": "wiktionary_vuizur",
+      "filename": "Japanese-English Wiktionary dictionary stardict.tar.gz",
+      "url": "https://raw.githubusercontent.com/Vuizur/Wiktionary-Dictionaries/master/Japanese-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_bytes": 6224775,
+      "size_mb": 5.9,
+      "type": "bilingual",
+      "bidirectional": true,
+      "priority": "high"
+    },
+    "it-en": {
+      "pair": "it-en",
+      "lang1": {
+        "code": "it",
+        "name": "Italian",
+        "full_name": "Italian"
+      },
+      "lang2": {
+        "code": "en",
+        "name": "English",
+        "full_name": "English"
+      },
+      "source": "wiktionary_vuizur",
+      "filename": "Italian-English Wiktionary dictionary stardict.tar.gz",
+      "url": "https://raw.githubusercontent.com/Vuizur/Wiktionary-Dictionaries/master/Italian-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_bytes": 5563368,
+      "size_mb": 5.3,
+      "type": "bilingual",
+      "bidirectional": true,
+      "priority": "high"
+    },
+    "zh-en": {
+      "pair": "zh-en",
+      "lang1": {
+        "code": "zh",
+        "name": "Chinese",
+        "full_name": "Chinese"
+      },
+      "lang2": {
+        "code": "en",
+        "name": "English",
+        "full_name": "English"
+      },
+      "source": "wiktionary_vuizur",
+      "filename": "Chinese-English Wiktionary dictionary stardict.tar.gz",
+      "url": "https://raw.githubusercontent.com/Vuizur/Wiktionary-Dictionaries/master/Chinese-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_bytes": 4822174,
+      "size_mb": 4.6,
+      "type": "bilingual",
+      "bidirectional": true,
+      "priority": "high"
+    },
+    "es-en": {
+      "pair": "es-en",
+      "lang1": {
+        "code": "es",
+        "name": "Spanish",
+        "full_name": "Spanish"
+      },
+      "lang2": {
+        "code": "en",
+        "name": "English",
+        "full_name": "English"
+      },
+      "source": "wiktionary_vuizur",
+      "filename": "Spanish-English Wiktionary dictionary stardict.tar.gz",
+      "url": "https://raw.githubusercontent.com/Vuizur/Wiktionary-Dictionaries/master/Spanish-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_bytes": 4860349,
+      "size_mb": 4.6,
+      "type": "bilingual",
+      "bidirectional": true,
+      "priority": "high"
+    },
+    "ru-en": {
+      "pair": "ru-en",
+      "lang1": {
+        "code": "ru",
+        "name": "Russian",
+        "full_name": "Russian"
+      },
+      "lang2": {
+        "code": "en",
+        "name": "English",
+        "full_name": "English"
+      },
+      "source": "wiktionary_vuizur",
+      "filename": "Russian-English Wiktionary dictionary stardict.tar.gz",
+      "url": "https://raw.githubusercontent.com/Vuizur/Wiktionary-Dictionaries/master/Russian-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_bytes": 4389956,
+      "size_mb": 4.2,
+      "type": "bilingual",
+      "bidirectional": true,
+      "priority": "high"
+    },
+    "fr-en": {
+      "pair": "fr-en",
+      "lang1": {
+        "code": "fr",
+        "name": "French",
+        "full_name": "French"
+      },
+      "lang2": {
+        "code": "en",
+        "name": "English",
+        "full_name": "English"
+      },
+      "source": "wiktionary_vuizur",
+      "filename": "French-English Wiktionary dictionary stardict.tar.gz",
+      "url": "https://raw.githubusercontent.com/Vuizur/Wiktionary-Dictionaries/master/French-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_bytes": 3370636,
+      "size_mb": 3.2,
+      "type": "bilingual",
+      "bidirectional": true,
+      "priority": "high"
+    },
+    "pt-en": {
+      "pair": "pt-en",
+      "lang1": {
+        "code": "pt",
+        "name": "Portuguese",
+        "full_name": "Portuguese"
+      },
+      "lang2": {
+        "code": "en",
+        "name": "English",
+        "full_name": "English"
+      },
+      "source": "wiktionary_vuizur",
+      "filename": "Portuguese-English Wiktionary dictionary stardict.tar.gz",
+      "url": "https://raw.githubusercontent.com/Vuizur/Wiktionary-Dictionaries/master/Portuguese-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_bytes": 2702376,
+      "size_mb": 2.6,
+      "type": "bilingual",
+      "bidirectional": true,
+      "priority": "high"
+    },
+    "ko-en": {
+      "pair": "ko-en",
+      "lang1": {
+        "code": "ko",
+        "name": "Korean",
+        "full_name": "Korean"
+      },
+      "lang2": {
+        "code": "en",
+        "name": "English",
+        "full_name": "English"
+      },
+      "source": "wiktionary_vuizur",
+      "filename": "Korean-English Wiktionary dictionary stardict.tar.gz",
+      "url": "https://raw.githubusercontent.com/Vuizur/Wiktionary-Dictionaries/master/Korean-English%20Wiktionary%20dictionary%20stardict.tar.gz",
+      "size_bytes": 2167218,
+      "size_mb": 2.1,
+      "type": "bilingual",
+      "bidirectional": true,
+      "priority": "high"
+    }
+  }
+}
