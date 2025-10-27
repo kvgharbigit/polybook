@@ -100,6 +100,12 @@ dist/
 language-packs/downloads/
 *.pack
 
+# Large dictionary files (will be downloaded/generated)
+packages/app/assets/dictionaries/*.jsonl
+packages/app/assets/dictionaries/*.jsonl.gz
+tools/tmp-unified-*/
+tools/**/*.sql
+
 # SQLite databases (local development)
 *.db
 *.sqlite
