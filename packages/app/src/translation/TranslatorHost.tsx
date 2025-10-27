@@ -25,38 +25,178 @@ const PENDING = new Map<string, PendingTranslation>();
 
 export function postTranslate(
   request: { id: string; text: string; from: string; to: string },
-  timeoutMs: number = 5000
+  timeoutMs: number = 5000,
+  retries: number = 2
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!WEBVIEW_REF) {
-      reject(new Error('TranslatorHost not initialized'));
+      reject(new Error('TranslatorHost not initialized - WebView not ready'));
+      return;
+    }
+
+    // Validate input parameters
+    if (!request.text?.trim()) {
+      reject(new Error('Translation text cannot be empty'));
+      return;
+    }
+
+    if (!request.from || !request.to) {
+      reject(new Error('Source and target languages must be specified'));
       return;
     }
 
     const timer = setTimeout(() => {
       PENDING.delete(request.id);
-      reject(new Error('Translation timeout'));
+      
+      // Retry logic for timeouts
+      if (retries > 0) {
+        console.warn(`🌐 Translation timeout, retrying... (${retries} attempts remaining)`);
+        postTranslate(request, timeoutMs, retries - 1)
+          .then(resolve)
+          .catch(reject);
+        return;
+      }
+      
+      reject(new Error(`Translation timeout after ${timeoutMs}ms`));
     }, timeoutMs);
 
     PENDING.set(request.id, {
       resolve: (value: string) => {
         clearTimeout(timer);
+        PENDING.delete(request.id);
         resolve(value);
       },
       reject: (error: Error) => {
         clearTimeout(timer);
+        PENDING.delete(request.id);
         reject(error);
       }
     });
 
-    WEBVIEW_REF.postMessage(JSON.stringify({
-      type: 'translate',
-      id: request.id,
-      text: request.text,
-      from: request.from,
-      to: request.to
-    }));
+    try {
+      WEBVIEW_REF.postMessage(JSON.stringify({
+        type: 'translate',
+        id: request.id,
+        text: request.text.trim(),
+        from: request.from,
+        to: request.to
+      }));
+    } catch (messageError) {
+      clearTimeout(timer);
+      PENDING.delete(request.id);
+      reject(new Error(`Failed to send message to WebView: ${messageError}`));
+    }
   });
+}
+
+async function copyBergamotAssets(runtimeDir: string) {
+  const { Asset } = await import('expo-asset');
+  
+  try {
+    // Check if assets are already copied to avoid redundant work
+    const indexPath = `${runtimeDir}index.html`;
+    const indexExists = await FileSystem.getInfoAsync(indexPath);
+    
+    if (indexExists.exists) {
+      console.log('📁 Bergamot assets already present, skipping copy');
+      return;
+    }
+    
+    console.log('📁 Copying Bergamot assets to runtime directory...');
+    
+    // Copy HTML template with error handling
+    const htmlSource = require('./bergamot/index.html');
+    const htmlAsset = Asset.fromModule(htmlSource);
+    await htmlAsset.downloadAsync();
+    
+    if (!htmlAsset.localUri) {
+      throw new Error('Failed to download HTML template asset');
+    }
+    
+    const htmlContent = await FileSystem.readAsStringAsync(htmlAsset.localUri);
+    await FileSystem.writeAsStringAsync(indexPath, htmlContent);
+    console.log('📁 ✅ HTML template copied');
+    
+    // Copy Bergamot WASM and JS files with retry logic
+    const wasmAssets = [
+      { source: require('../../assets/bergamot/bergamot-translator-worker.js'), name: 'bergamot-translator-worker.js' },
+      { source: require('../../assets/bergamot/assets/bergamot/bergamot-translator-worker.wasm'), name: 'bergamot-translator-worker.wasm' }
+    ];
+    
+    for (const { source: moduleSource, name: expectedName } of wasmAssets) {
+      try {
+        const asset = Asset.fromModule(moduleSource);
+        await asset.downloadAsync();
+        
+        if (!asset.localUri) {
+          throw new Error(`Failed to download ${expectedName}`);
+        }
+        
+        const fileName = asset.name || expectedName;
+        const targetPath = `${runtimeDir}${fileName}`;
+        
+        // Ensure file doesn't exist before copying
+        const targetExists = await FileSystem.getInfoAsync(targetPath);
+        if (targetExists.exists) {
+          await FileSystem.deleteAsync(targetPath);
+        }
+        
+        // Copy file from asset to runtime directory
+        await FileSystem.copyAsync({
+          from: asset.localUri,
+          to: targetPath
+        });
+        
+        // Check file size for logging
+        const newFileInfo = await FileSystem.getInfoAsync(targetPath);
+        const fileSize = newFileInfo.exists && 'size' in newFileInfo ? newFileInfo.size : 0;
+        console.log(`📁 ✅ Copied ${fileName} (${Math.round(fileSize / 1024)}KB)`);
+        
+      } catch (assetError) {
+        console.warn(`📁 ⚠️ Failed to copy ${expectedName}:`, assetError);
+        // Continue with other assets even if one fails
+      }
+    }
+    
+    // Create models directory for future model downloads
+    const modelsDir = `${runtimeDir}models/`;
+    await FileSystem.makeDirectoryAsync(modelsDir, { intermediates: true });
+    
+    console.log('📁 ✅ Bergamot assets copied successfully');
+    
+  } catch (error) {
+    console.error('❌ Failed to copy Bergamot assets:', error);
+    
+    // Fallback: create minimal HTML with mock translation
+    const fallbackHtml = `
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <script>
+    let ready = false;
+    function post(obj){ window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify(obj)); }
+    async function init(){ ready = true; post({ type: 'ready', mock: true }); }
+    async function translate({id, text, from, to}){
+      const result = text.replace(/hello/gi, 'hola').replace(/world/gi, 'mundo');
+      post({ type: 'result', id, text: result, qualityHint: -2.5 });
+    }
+    window.addEventListener('message', (ev) => {
+      try {
+        const msg = JSON.parse(ev.data || '{}');
+        if (msg.type === 'translate') translate(msg);
+        if (msg.type === 'warmup') init();
+      } catch {}
+    });
+    init();
+  </script>
+</head>
+<body></body>
+</html>`;
+    
+    await FileSystem.writeAsStringAsync(`${runtimeDir}index.html`, fallbackHtml);
+    console.log('📝 Created fallback HTML for testing');
+  }
 }
 
 export default function TranslatorHost() {
@@ -77,70 +217,8 @@ export default function TranslatorHost() {
         const runtimeDir = `${FileSystem.documentDirectory}bergamot-runtime/`;
         await FileSystem.makeDirectoryAsync(runtimeDir, { intermediates: true });
         
-        // TODO: Copy initial assets (index.html + worker + wasm) if not present
-        // For now, we'll create a minimal index.html for testing
-        const indexPath = `${runtimeDir}index.html`;
-        const indexExists = await FileSystem.getInfoAsync(indexPath);
-        
-        if (!indexExists.exists) {
-          await FileSystem.writeAsStringAsync(indexPath, `
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
-  <script>
-    let ready = false;
-    let engine;
-
-    function post(obj){
-      window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify(obj));
-    }
-
-    async function init(){
-      if (ready) return;
-      try {
-        // Mock initialization for testing
-        ready = true;
-        post({ type: 'ready' });
-      } catch (e) {
-        post({ type: 'error', id: 'init', error: String(e?.message || e) });
-      }
-    }
-
-    async function translate({id, text, from, to}){
-      try {
-        if (!ready) await init();
-        
-        // Mock translation for testing
-        const mockTranslation = text.replace(/hello/gi, 'hola')
-                                    .replace(/world/gi, 'mundo')
-                                    .replace(/good/gi, 'bueno')
-                                    .replace(/morning/gi, 'mañana');
-        
-        const qualityHint = -2.5; // Mock quality hint
-        post({ type: 'result', id, text: mockTranslation, qualityHint });
-      } catch (e) {
-        post({ type: 'error', id, error: String(e?.message || e) });
-      }
-    }
-
-    window.addEventListener('message', (ev) => {
-      try {
-        const msg = JSON.parse(ev.data || '{}');
-        if (msg.type === 'translate') translate(msg);
-        if (msg.type === 'warmup') init();
-      } catch {}
-    });
-
-    // Warm start
-    init();
-  </script>
-</head>
-<body></body>
-</html>
-          `);
-        }
+        // Copy Bergamot assets to runtime directory
+        await this.copyBergamotAssets(runtimeDir);
 
         serverRef.current = new StaticServer(0, runtimeDir, { localOnly: true });
         const origin = await serverRef.current.start();

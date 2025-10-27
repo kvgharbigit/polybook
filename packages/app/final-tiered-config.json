@@ -1,0 +1,53 @@
+{
+  "version": "2.0.0-tiered",
+  "strategy": "tiny-preferred-base-fallback",
+  "generated": "2024-10-27T08:51:00.000Z",
+  "coverage": {
+    "supported": 22,
+    "total": 22,
+    "percentage": 100
+  },
+  "rules": {
+    "tinyPreferred": true,
+    "noBaseWhenTinyExists": true,
+    "autoTierSelection": true,
+    "description": "Use tiny models when available, base models only when tiny doesn't exist"
+  },
+  "tinyModels": [
+    { "pair": "enes", "tier": "tiny", "bleu": 25.9, "size": 16, "lang": "en→es" },
+    { "pair": "enfr", "tier": "tiny", "bleu": 48.5, "size": 16, "lang": "en→fr" },
+    { "pair": "ende", "tier": "tiny", "bleu": 38.8, "size": 16, "lang": "en→de" },
+    { "pair": "enit", "tier": "tiny", "bleu": 29.2, "size": 16, "lang": "en→it" },
+    { "pair": "enpt", "tier": "tiny", "bleu": 49.4, "size": 16, "lang": "en→pt" },
+    { "pair": "enru", "tier": "tiny", "bleu": 28.5, "size": 16, "lang": "en→ru" },
+    { "pair": "enhi", "tier": "tiny", "bleu": 36.7, "size": 16, "lang": "en→hi" },
+    { "pair": "esen", "tier": "tiny", "bleu": 27.5, "size": 16, "lang": "es→en" },
+    { "pair": "fren", "tier": "tiny", "bleu": 43.8, "size": 16, "lang": "fr→en" },
+    { "pair": "deen", "tier": "tiny", "bleu": 39.6, "size": 16, "lang": "de→en" },
+    { "pair": "iten", "tier": "tiny", "bleu": 30.9, "size": 16, "lang": "it→en" },
+    { "pair": "pten", "tier": "tiny", "bleu": 47.8, "size": 16, "lang": "pt→en" },
+    { "pair": "ruen", "tier": "tiny", "bleu": 30.4, "size": 16, "lang": "ru→en" },
+    { "pair": "hien", "tier": "tiny", "bleu": 36.2, "size": 16, "lang": "hi→en" }
+  ],
+  "baseModels": [
+    { "pair": "enar", "tier": "base", "bleu": 29.9, "size": 41, "lang": "en→ar" },
+    { "pair": "enja", "tier": "base", "bleu": 35.3, "size": 57, "lang": "en→ja" },
+    { "pair": "enko", "tier": "base", "bleu": 29.9, "size": 57, "lang": "en→ko" },
+    { "pair": "enzh", "tier": "base", "bleu": null, "size": 41, "lang": "en→zh" },
+    { "pair": "aren", "tier": "base", "bleu": 39.6, "size": 41, "lang": "ar→en" },
+    { "pair": "jaen", "tier": "base", "bleu": 25.9, "size": 57, "lang": "ja→en" },
+    { "pair": "koen", "tier": "base", "bleu": 29.0, "size": 57, "lang": "ko→en" },
+    { "pair": "zhen", "tier": "base", "bleu": null, "size": 57, "lang": "zh→en" }
+  ],
+  "languageCoverage": {
+    "bergamotSupported": ["en", "es", "fr", "de", "it", "pt", "ru", "hi", "ar", "ja", "ko", "zh"],
+    "tinyTier": ["en", "es", "fr", "de", "it", "pt", "ru", "hi"],
+    "baseTier": ["ar", "ja", "ko", "zh"],
+    "unsupported": []
+  },
+  "downloadSizes": {
+    "tinyTotal": "224MB (14 models × 16MB)",
+    "baseTotal": "408MB (8 models × 41-57MB)",
+    "grandTotal": "632MB (all 22 models)"
+  }
+}

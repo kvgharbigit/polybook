@@ -104,18 +104,18 @@ export class PackManager {
         baseUrl: '',
         packs: {
           'eng-spa': {
-            url: 'https://download.freedict.org/dictionaries/eng-spa/2024.10.10/freedict-eng-spa-2024.10.10.dictd.tar.xz',
-            bytes: 4681940,
+            url: 'https://github.com/kvgharbigit/polybook/releases/download/packs/eng-spa.sqlite.zip',
+            bytes: 1200000,
             sha256: 'placeholder',
-            license: 'GPL-2.0-or-later',
-            source: 'FreeDict'
+            license: 'Wiktionary',
+            source: 'Wiktionary'
           },
           'spa-eng': {
-            url: 'https://download.freedict.org/dictionaries/spa-eng/0.3.1/freedict-spa-eng-0.3.1.dictd.tar.xz',
-            bytes: 94784,
+            url: 'https://github.com/kvgharbigit/polybook/releases/download/packs/spa-eng.sqlite.zip',
+            bytes: 1200000,
             sha256: 'placeholder',
-            license: 'GPL-2.0-or-later',
-            source: 'FreeDict'
+            license: 'Wiktionary',
+            source: 'Wiktionary'
           }
         }
       };

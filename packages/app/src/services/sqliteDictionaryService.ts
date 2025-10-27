@@ -24,10 +24,10 @@ export class SQLiteDictionaryService {
    * Initialize the SQLite dictionary service
    */
   static async initialize(userLanguages?: string[]): Promise<void> {
-    console.log('📚 SQLiteDictionaryService: initialize() called with languages:', userLanguages);
+    console.debug('📚 SQLiteDictionaryService: initialize() called with languages:', userLanguages);
     
     if (this.initialized) {
-      console.log('📚 SQLiteDictionaryService: Already initialized, skipping');
+      console.debug('📚 SQLiteDictionaryService: Already initialized, skipping');
       return;
     }
 
@@ -35,7 +35,7 @@ export class SQLiteDictionaryService {
       console.log('📚 SQLiteDictionaryService: Starting initialization...');
       
       // Initialize Language Pack Service first
-      console.log('📚 SQLiteDictionaryService: Initializing LanguagePackService...');
+      console.debug('📚 SQLiteDictionaryService: Initializing LanguagePackService...');
       await LanguagePackService.initialize();
       console.log('📚 SQLiteDictionaryService: LanguagePackService initialized successfully');
       
@@ -253,36 +253,6 @@ export class SQLiteDictionaryService {
     console.log(`📚 Total databases opened: ${this.databases.size}`);
   }
 
-  /**
-   * Open available dictionary databases or create in-memory fallbacks
-   * @deprecated Use openDictionariesForLanguages instead
-   */
-  private static async openAvailableDictionaries(): Promise<void> {
-    // Default to common languages for backward compatibility
-    const languages = ['en', 'es', 'fr'];
-    
-    for (const lang of languages) {
-      try {
-        const dbPath = `${lang}_dict.sqlite`;
-        const localPath = `${FileSystem.documentDirectory}SQLite/${dbPath}`;
-        
-        // Check if database exists
-        const fileInfo = await FileSystem.getInfoAsync(localPath);
-        if (fileInfo.exists) {
-          const db = await SQLite.openDatabaseAsync(dbPath);
-          this.databases.set(lang, db);
-          console.log(`📖 Opened dictionary: ${lang}`);
-        } else {
-          // No legacy dictionary available
-          console.log(`📖 No legacy dictionary available for ${lang}`);
-        }
-      } catch (error) {
-        console.log(`📖 Failed to open dictionary: ${lang}`, error);
-      }
-    }
-
-    console.log(`📚 Available dictionaries: ${Array.from(this.databases.keys()).join(', ')}`);
-  }
 
   /**
    * Create in-memory fallback database with basic dictionary data

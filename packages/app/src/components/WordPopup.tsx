@@ -277,11 +277,13 @@ export const WordPopup: React.FC<WordPopupProps> = ({
     const names: Record<string, string> = {
       en: 'English',
       es: 'Spanish',
+      zh: 'Mandarin',
       fr: 'French',
       de: 'German',
       it: 'Italian',
       pt: 'Portuguese',
       ru: 'Russian',
+      ja: 'Japanese',
       ko: 'Korean',
       ar: 'Arabic',
       hi: 'Hindi',

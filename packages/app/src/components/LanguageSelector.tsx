@@ -19,13 +19,15 @@ interface LanguageOption {
 }
 
 const SUPPORTED_LANGUAGES: LanguageOption[] = [
-  { code: 'en', name: 'English', flag: '🇺🇸', nativeName: 'English' },
+  { code: 'en', name: 'English', flag: '🇬🇧', nativeName: 'English' },
   { code: 'es', name: 'Spanish', flag: '🇪🇸', nativeName: 'Español' },
+  { code: 'zh', name: 'Mandarin', flag: '🇨🇳', nativeName: '中文' },
   { code: 'fr', name: 'French', flag: '🇫🇷', nativeName: 'Français' },
   { code: 'de', name: 'German', flag: '🇩🇪', nativeName: 'Deutsch' },
   { code: 'it', name: 'Italian', flag: '🇮🇹', nativeName: 'Italiano' },
   { code: 'pt', name: 'Portuguese', flag: '🇵🇹', nativeName: 'Português' },
   { code: 'ru', name: 'Russian', flag: '🇷🇺', nativeName: 'Русский' },
+  { code: 'ja', name: 'Japanese', flag: '🇯🇵', nativeName: '日本語' },
   { code: 'ko', name: 'Korean', flag: '🇰🇷', nativeName: '한국어' },
   { code: 'ar', name: 'Arabic', flag: '🇸🇦', nativeName: 'العربية' },
   { code: 'hi', name: 'Hindi', flag: '🇮🇳', nativeName: 'हिन्दी' },
@@ -66,11 +68,13 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
       const getDefaultTargetLanguage = (homeLanguage: string): string => {
         switch (homeLanguage) {
           case 'es': return 'en'; // Spanish → English
+          case 'zh': return 'en'; // Mandarin → English
           case 'fr': return 'en'; // French → English
           case 'de': return 'en'; // German → English
           case 'it': return 'en'; // Italian → English
           case 'pt': return 'en'; // Portuguese → English
           case 'ru': return 'en'; // Russian → English
+          case 'ja': return 'en'; // Japanese → English
           case 'ko': return 'en'; // Korean → English
           case 'ar': return 'en'; // Arabic → English
           case 'hi': return 'en'; // Hindi → English

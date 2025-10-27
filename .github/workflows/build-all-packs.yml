@@ -72,7 +72,7 @@ jobs:
           
           **BILINGUAL DICTIONARIES:**
           - eng-spa/spa-eng (4.6MB Wiktionary): English ↔ Spanish - 43K+ entries
-          - eng-chn/chn-eng (4.6MB Wiktionary): English ↔ Chinese/Mandarin - Full support
+          - eng-chn/chn-eng (4.6MB Wiktionary): English ↔ Mandarin - Full support
           
           **ADDITIONAL SUPPORTED LANGUAGES:**
           - eng-fra/fra-eng (3.2MB Wiktionary): English ↔ French
