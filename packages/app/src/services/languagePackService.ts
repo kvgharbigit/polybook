@@ -299,10 +299,18 @@ export class LanguagePackService {
       // For now, skip checksum verification (would need crypto library)
       // TODO: Implement proper checksum verification in production
 
-      // Create installation directory
+      // Create installation directory (clean first to avoid conflicts)
       const installDir = `${this.PACKS_DIRECTORY}${pack.id}/`;
+      
+      // Remove existing directory if it exists to ensure clean install
+      const dirInfo = await FileSystem.getInfoAsync(installDir);
+      if (dirInfo.exists) {
+        console.log(`📦 Removing existing installation directory: ${installDir}`);
+        await FileSystem.deleteAsync(installDir, { idempotent: true });
+      }
+      
       await FileSystem.makeDirectoryAsync(installDir, { intermediates: true });
-      console.log(`📦 Created install directory: ${installDir}`);
+      console.log(`📦 Created clean install directory: ${installDir}`);
 
       // Extract/install dictionary (ML Kit models are handled separately)
       const dictionaryPath = `${installDir}${pack.dictionary.filename}`;
@@ -384,14 +392,35 @@ export class LanguagePackService {
         
         // Database validation - real data should be available from GitHub
         console.log(`📦 Validating downloaded database...`);
+        console.log(`📦 Full database path: ${dictionaryPath}`);
+        console.log(`📦 Database file size: ${dictFileInfo.size} bytes`);
         try {
           const SQLite = await import('expo-sqlite');
+          
+          // Try opening with full path first
+          console.log(`📦 Opening database with full path: ${dictionaryPath}`);
           const db = await SQLite.openDatabaseAsync(dictionaryPath);
+          
           const tables = await db.getAllAsync("SELECT name FROM sqlite_master WHERE type='table'");
+          console.log(`📦 Available tables:`, tables.map(t => t.name));
           
           if (tables.some(t => t.name === 'dict')) {
             const count = await db.getAllAsync('SELECT COUNT(*) as count FROM dict');
             console.log(`📦 Dictionary database loaded successfully: ${count[0].count} entries`);
+            
+            // Sample a few entries to verify content
+            const sample = await db.getAllAsync('SELECT lemma, def FROM dict LIMIT 3');
+            console.log(`📦 Sample entries:`, sample);
+            
+            // Check if this looks like test data vs real data
+            if (count[0].count < 100) {
+              console.warn(`📦 WARNING: Database has suspiciously few entries (${count[0].count}). This might be test data!`);
+              console.warn(`📦 Expected 43,638 entries for Spanish-English dictionary`);
+              console.warn(`📦 Database path: ${dictionaryPath}`);
+              console.warn(`📦 File size: ${dictFileInfo.size} bytes`);
+            }
+            
+            await db.closeAsync();
           } else {
             console.warn(`📦 Warning: No dict table found in database`);
           }
@@ -446,6 +475,7 @@ export class LanguagePackService {
       await this.addInstalledPack(installedPack);
 
       // Clean up download file
+      console.log(`📦 Cleaning up download file: ${downloadedFile}`);
       await FileSystem.deleteAsync(downloadedFile, { idempotent: true });
 
       // Mark as completed
