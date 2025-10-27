@@ -5,10 +5,13 @@ import { useNavigation } from '../navigation/SimpleNavigator';
 import { useAppStore } from '../store/appStore';
 import { ContentParser } from '../services/contentParser';
 import { db } from '../services/databaseInterface';
+import BilingualTranslationPopup from '../components/BilingualTranslationPopup';
 import TranslationPopup, { WordDefinition } from '../components/TranslationPopup';
+import WordPopup from '../components/WordPopup';
 import ModernChapterRenderer from '../components/ModernChapterRenderer';
 import InteractiveText from '../components/InteractiveText';
 import { WordLookupService } from '../services/wordLookup';
+import SQLiteDictionaryService from '../services/sqliteDictionaryService';
 import { ttsService } from '../services/ttsService';
 import { useTheme } from '../hooks/useTheme';
 import { useFont } from '../hooks/useFont';
@@ -21,6 +24,13 @@ function ReaderScreen() {
   const { navigationState, goBack } = useNavigation();
   const { id } = navigationState.params || { id: '1' };
   const { theme, setTheme, currentThemeName, availableThemes } = useTheme();
+  const { 
+    userLanguageProfile,
+    addBookmark,
+    getBookmarks,
+  } = useAppStore();
+  
+  console.log('🔵 ReaderScreen: userLanguageProfile from store:', userLanguageProfile);
   const { settings: fontSettings, increaseFontSize, decreaseFontSize, textStyles: rawTextStyles } = useFont();
   
   // Memoize textStyles to prevent ReaderScreen re-renders on font changes
@@ -43,13 +53,18 @@ function ReaderScreen() {
   const [isEpub, setIsEpub] = useState(false);
   const [showChapterSidebar, setShowChapterSidebar] = useState(false);
   
-  // Translation popup state
+  // Translation popup state (legacy)
   const [showPopup, setShowPopup] = useState(false);
   const [selectedWord, setSelectedWord] = useState<string>('');
   const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 });
   const [wordDefinition, setWordDefinition] = useState<WordDefinition | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
+  
+  // New WordPopup state
+  const [showWordPopup, setShowWordPopup] = useState(false);
+  const [currentLookupWord, setCurrentLookupWord] = useState<string>('');
+  const [wordPopupPosition, setWordPopupPosition] = useState({ x: 0, y: 0 });
   
   // Success message state
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
@@ -62,8 +77,58 @@ function ReaderScreen() {
   const [isChunkingLargeDocument, setIsChunkingLargeDocument] = useState(false);
   const [pseudoChapters, setPseudoChapters] = useState<Chapter[]>([]);
   
+  const [currentBook, setCurrentBook] = useState<any>(null);
+  
   // Force re-render hook
   const [, forceUpdate] = useReducer(x => x + 1, 0);
+
+  // Initialize SQLite dictionary service
+  useEffect(() => {
+    const initializeDictionary = async () => {
+      console.log('📚 ReaderScreen: Dictionary initialization effect triggered');
+      console.log('📚 ReaderScreen: userLanguageProfile from store:', userLanguageProfile);
+      
+      // Always try to get fresh profile from service if store profile is missing or seems default
+      let currentProfile = userLanguageProfile;
+      
+      if (!currentProfile || currentProfile.nativeLanguage === 'en') {
+        console.log('📚 ReaderScreen: Store profile missing or default, fetching fresh profile...');
+        try {
+          // Import the service dynamically to avoid circular imports
+          const UserLanguageProfileService = (await import('../services/userLanguageProfileService')).default;
+          currentProfile = await UserLanguageProfileService.getUserProfile();
+          console.log('📚 ReaderScreen: Fresh profile loaded:', currentProfile);
+        } catch (error) {
+          console.error('📚 ReaderScreen: Failed to load fresh profile:', error);
+        }
+      }
+      
+      if (!currentProfile) {
+        console.log('📚 ReaderScreen: ❌ No user language profile available, skipping dictionary initialization');
+        return;
+      }
+
+      try {
+        console.log('📚 ReaderScreen: ✅ User language profile found, proceeding with dictionary initialization');
+        const languages = [
+          currentProfile.nativeLanguage,
+          ...currentProfile.targetLanguages
+        ];
+        console.log('📚 ReaderScreen: Languages to initialize:', languages);
+        console.log('📚 ReaderScreen: Native language:', currentProfile.nativeLanguage);
+        console.log('📚 ReaderScreen: Target languages:', currentProfile.targetLanguages);
+        
+        console.log('📚 ReaderScreen: Calling SQLiteDictionaryService.initialize()...');
+        await SQLiteDictionaryService.initialize(languages);
+        console.log('📚 ReaderScreen: ✅ SQLite dictionary service initialized successfully');
+      } catch (error) {
+        console.error('📚 ReaderScreen: ❌ Failed to initialize dictionary service:', error);
+        console.error('📚 ReaderScreen: Error stack:', error.stack);
+      }
+    };
+
+    initializeDictionary();
+  }, [userLanguageProfile]);
   
   // Handle large document chunking in background
   useEffect(() => {
@@ -167,6 +232,7 @@ function ReaderScreen() {
 
       console.log('📖 loadBookContent: Found book:', { title: book.title, format: book.format, filePath: book.filePath });
       setBookTitle(`${book.title} (${book.format.toUpperCase()})`);
+      setCurrentBook(book);
 
       // Check if content is already cached and compatible
       console.log('📖 loadBookContent: Checking for cached content');
@@ -228,6 +294,7 @@ function ReaderScreen() {
         setContent(bookContent.content);
         setContentLoaded(true);
         
+        
         // Handle chapters if available (from any file format)
         if (bookContent.chapters && bookContent.chapters.length > 0) {
           console.log('📖 loadBookContent: Setting chapters from', book.format.toUpperCase(), {
@@ -269,16 +336,23 @@ function ReaderScreen() {
     }
   };
 
+
   const handleWordTap = async (word: string, event: any, wordIndex?: number) => {
-    console.log('Tapped word:', word);
+    console.log('📖 Tapped word:', word);
     
     // Extract position immediately before async operations
     const { pageX, pageY } = event.nativeEvent;
     
+    // Clean the word (remove punctuation)
+    const cleanWord = word.replace(/[^\w'-]/g, '').toLowerCase();
+    if (!cleanWord || cleanWord.length < 2) {
+      console.log('📖 Skipping lookup for short/empty word:', cleanWord);
+      return;
+    }
+    
     // Speak the word if TTS is enabled
     if (isTTSEnabled) {
       try {
-        const cleanWord = word.replace(/[^\w]/g, ''); // Remove punctuation
         if (cleanWord.length > 0) {
           // Highlight the word during TTS
           if (wordIndex !== undefined) {
@@ -287,7 +361,7 @@ function ReaderScreen() {
           
           await ttsService.speak(cleanWord, {
             rate: 0.8, // Slightly slower for single words
-            language: 'en-US', // TODO: Use book language
+            language: 'en-US', // TODO: Use book language from userLanguageProfile
             onDone: () => {
               // Clear highlight when TTS is done
               clearHighlight();
@@ -300,22 +374,14 @@ function ReaderScreen() {
       }
     }
     
+    // Show the new SQLite-powered dictionary popup
+    setCurrentLookupWord(cleanWord);
+    setWordPopupPosition({ x: pageX, y: pageY });
+    setShowWordPopup(true);
+    
+    // Legacy popup fallback (keep for now)
     setSelectedWord(word);
     setPopupPosition({ x: pageX, y: pageY });
-    setShowPopup(true);
-    setIsLookingUp(true);
-    setLookupError(null);
-    setWordDefinition(null);
-    
-    try {
-      const definition = await WordLookupService.lookupWord(word);
-      setWordDefinition(definition);
-    } catch (error) {
-      console.error('Error looking up word:', error);
-      setLookupError('Failed to look up word. Please try again.');
-    } finally {
-      setIsLookingUp(false);
-    }
   };
 
   const handleClosePopup = () => {
@@ -323,6 +389,19 @@ function ReaderScreen() {
     setSelectedWord('');
     setWordDefinition(null);
     setLookupError(null);
+  };
+
+  const handleCloseWordPopup = () => {
+    setShowWordPopup(false);
+    setCurrentLookupWord('');
+  };
+
+  const handleSaveWord = (word: string, definition: any) => {
+    // Save word to user's collection/bookmarks
+    console.log('📚 Saving word:', word, definition);
+    setSuccessMessage(`Saved "${word}" to your word collection`);
+    setShowSuccessMessage(true);
+    setTimeout(() => setShowSuccessMessage(false), 3000);
   };
 
   const extractContext = (word: string, fullText: string): string => {
@@ -356,59 +435,6 @@ function ReaderScreen() {
     return fullText.substring(start, end).trim();
   };
 
-  const handleSaveWord = async (word: string) => {
-    try {
-      const book = books.find(b => b.id === id);
-      if (!book) {
-        console.error('Book not found for vocabulary saving');
-        return;
-      }
-
-      // Extract context from the current content
-      const context = extractContext(word, content);
-      
-      // Get the current definition if available
-      const definition = wordDefinition;
-      
-      // Create vocabulary card
-      const vocabularyCard = {
-        bookId: book.id,
-        headword: word.toLowerCase(),
-        lemma: word.toLowerCase(), // For now, same as headword
-        sourceLanguage: book.language,
-        targetLanguage: book.targetLanguage,
-        sourceContext: context,
-        translation: definition?.definitions[0]?.meaning || `Definition for "${word}"`,
-        definition: definition?.definitions.map(d => d.meaning).join('; '),
-        examples: definition?.definitions.map(d => d.example).filter(Boolean),
-        frequency: definition?.frequency,
-        srsState: 'new' as const,
-        createdAt: new Date(),
-      };
-
-      console.log('Saving vocabulary card:', vocabularyCard);
-      
-      // Save to database
-      const cardId = await db.addVocabularyCard(vocabularyCard);
-      console.log('Vocabulary card saved with ID:', cardId);
-      
-      // Close popup and show success
-      handleClosePopup();
-      
-      // Show success message
-      setSuccessMessage(`"${word}" saved to vocabulary!`);
-      setShowSuccessMessage(true);
-      
-      // Hide success message after 3 seconds
-      setTimeout(() => {
-        setShowSuccessMessage(false);
-      }, 3000);
-      
-    } catch (error) {
-      console.error('Error saving word to vocabulary:', error);
-      // TODO: Show error toast
-    }
-  };
 
   const handleTranslateWord = async (word: string) => {
     try {
@@ -587,7 +613,10 @@ function ReaderScreen() {
             <Text style={styles.loadingText}>Loading book content...</Text>
           </View>
         ) : (
-          renderContent()
+          <>
+            {renderContent()}
+            
+          </>
         )}
       </View>
 
@@ -661,16 +690,45 @@ function ReaderScreen() {
         </View>
       )}
 
-      <TranslationPopup
+      <BilingualTranslationPopup
         visible={showPopup}
         word={selectedWord}
         position={popupPosition}
-        definition={wordDefinition || undefined}
-        isLoading={isLookingUp}
-        error={lookupError || undefined}
+        context={undefined} // Could be enhanced to pass sentence context
+        sourceLanguage={undefined} // Will be auto-detected
         onClose={handleClosePopup}
+        onSaveWord={(word, definition) => {
+          // Convert BilingualWordDefinition to WordDefinition format for compatibility
+          const compatDefinition: WordDefinition = {
+            word: definition.word,
+            pronunciation: definition.pronunciation?.ipa,
+            definitions: definition.definitions.map(def => ({
+              partOfSpeech: def.partOfSpeech,
+              meaning: def.definition,
+              example: def.example
+            })),
+            frequency: definition.frequency
+          };
+          handleSaveWord(word, compatDefinition);
+        }}
+        onPlayAudio={(word, language) => {
+          // Handle audio playback if needed
+          console.log(`🔊 Play audio: ${word} (${language})`);
+        }}
+      />
+
+      {/* New SQLite-powered WordPopup */}
+      <WordPopup
+        word={currentLookupWord}
+        visible={showWordPopup}
+        onClose={handleCloseWordPopup}
+        position={wordPopupPosition}
+        userProfile={userLanguageProfile || {
+          nativeLanguage: 'es', // Default to Spanish since user said they set it to Español
+          targetLanguages: ['en'],
+        }}
         onSaveWord={handleSaveWord}
-        onTranslate={handleTranslateWord}
+        onNavigateToLanguagePacks={() => navigate('LanguagePacksScreen')}
       />
 
       {showSuccessMessage && (

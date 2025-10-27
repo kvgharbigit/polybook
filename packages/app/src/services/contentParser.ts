@@ -1,6 +1,5 @@
 import * as FileSystem from 'expo-file-system';
 import { EPUBService } from './epubService';
-import { PDFService } from './pdfService';
 
 export interface ParsedContent {
   title: string;
@@ -590,10 +589,8 @@ export class ContentParser {
         return this.parseHtmlFile(filePath);
       case 'epub':
         return EPUBService.parseFile(filePath);
-      case 'pdf':
-        return PDFService.parseFile(filePath);
       default:
-        throw new Error(`Unsupported file format: ${format}. Currently supported: TXT, HTML, EPUB, PDF.`);
+        throw new Error(`Unsupported file format: ${format}. Currently supported: TXT, HTML, EPUB.`);
     }
   }
 }
