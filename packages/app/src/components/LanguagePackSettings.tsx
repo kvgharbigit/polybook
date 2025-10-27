@@ -12,6 +12,7 @@ import { UserLanguageProfile } from '@polybook/shared/src/types';
 import UserLanguageProfileService from '../services/userLanguageProfileService';
 import LanguagePackManager from '../services/languagePackManager';
 import SQLiteDictionaryService from '../services/sqliteDictionaryService';
+import { getServiceInfo } from '../services';
 
 interface LanguageOption {
   code: string;
@@ -94,12 +95,28 @@ export const LanguagePackSettings: React.FC<LanguagePackSettingsProps> = ({
       console.log('🌍 Initializing language pack status...');
       const packStatus: Record<string, LanguagePackInfo> = {};
       
+      // Check translation engine availability
+      const serviceInfo = getServiceInfo();
+      const isMlkitAvailable = serviceInfo.engine === 'mlkit';
+      
       for (const lang of SUPPORTED_LANGUAGES) {
         const isDictionaryInstalled = installedLanguages.includes(lang.code);
-        // TODO: Check for translator models separately
-        const isTranslatorInstalled = false; // Placeholder until ML Kit is implemented
         
-        console.log(`🔍 ${lang.code}: dictionary = ${isDictionaryInstalled}, translator = ${isTranslatorInstalled}`);
+        // Check for ML Kit translation models (only in production builds)
+        let isTranslatorInstalled = false;
+        if (isMlkitAvailable) {
+          try {
+            // Dynamic import to check ML Kit status
+            const { MlkitUtils } = await import('../services/mlkit');
+            const installedModels = await MlkitUtils.getInstalledModels();
+            isTranslatorInstalled = installedModels.includes(lang.code);
+          } catch (error) {
+            console.log(`ML Kit check failed for ${lang.code}:`, error);
+            isTranslatorInstalled = false;
+          }
+        }
+        
+        console.log(`🔍 ${lang.code}: dictionary = ${isDictionaryInstalled}, translator = ${isTranslatorInstalled} (${serviceInfo.engine})`);
         packStatus[lang.code] = {
           dictionaryInstalled: isDictionaryInstalled,
           translatorInstalled: isTranslatorInstalled,
@@ -108,7 +125,7 @@ export const LanguagePackSettings: React.FC<LanguagePackSettingsProps> = ({
           dictionaryProgress: 0,
           translatorProgress: 0,
           dictionarySize: storageData.languagePacks.find(p => p.language === lang.code)?.size,
-          translatorSize: undefined // Will be populated when ML Kit models are implemented
+          translatorSize: isTranslatorInstalled ? 25 * 1024 * 1024 : undefined // ~25MB for ML Kit models
         };
       }
 
@@ -513,20 +530,20 @@ export const LanguagePackSettings: React.FC<LanguagePackSettingsProps> = ({
           Total: {formatSize(storageInfo.totalSize)} • {storageInfo.languagePacks.length} dictionaries
         </Text>
         <Text style={styles.storageText}>
-          Translation models: Coming soon with ML Kit implementation
+          Translation: {getServiceInfo().engine === 'mlkit' ? 'ML Kit models available' : 'Online mode (Expo Go)'}
         </Text>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Top 10 Languages - Full Support</Text>
-        <Text style={styles.sectionSubtitle}>Optimal bilingual dictionaries + translation models</Text>
+        <Text style={styles.sectionSubtitle}>Bilingual dictionaries + ML Kit translation models</Text>
         {SUPPORTED_LANGUAGES.map(renderLanguageOption)}
       </View>
 
       {LIMITED_SUPPORT_LANGUAGES.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Limited Support Languages</Text>
-          <Text style={styles.sectionSubtitle}>Translation only - no dictionary available</Text>
+          <Text style={styles.sectionSubtitle}>ML Kit translation only - no dictionary available</Text>
           {LIMITED_SUPPORT_LANGUAGES.map((language) => renderLanguageOption(language, true))}
         </View>
       )}
@@ -535,7 +552,7 @@ export const LanguagePackSettings: React.FC<LanguagePackSettingsProps> = ({
         <Text style={styles.infoTitle}>ℹ️ About Language Packs</Text>
         <Text style={styles.infoText}>
           • Dictionary: Optimal bilingual dictionaries (Wiktionary){'\n'}
-          • Translator: ML Kit translation models for major languages{'\n'}
+          • Translation: ML Kit on-device models for 58+ languages{'\n'}
           • Strategy: Best source chosen per language pair (verified URLs){'\n'}
           • Coverage: English, Spanish, French, German, Italian, Portuguese, Russian, Korean, Arabic, Hindi{'\n'}
           • All resources work completely offline after download

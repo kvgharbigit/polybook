@@ -86,9 +86,9 @@ export default function TranslationModelsTab({ onRefresh }: TranslationModelsTab
   const handleDownloadModel = async (lang: string, pairName: string) => {
     if (!MlkitUtils.isAvailable()) {
       Alert.alert(
-        'Not Available',
-        'Model download is only available in Dev Client or production builds. In Expo Go, translation uses online service automatically.',
-        [{ text: 'OK' }]
+        'Development Mode',
+        'You\'re using Expo Go for development. Translation works automatically online - no downloads needed!\n\nTo test offline features, use the production app.',
+        [{ text: 'Got it!' }]
       );
       return;
     }
