@@ -39,7 +39,7 @@ npm run dev
 - **Translation testing**: Comprehensive testing interface for dictionary services
 - **Rich translation UI**: Animated popups with definitions, examples, and context
 
-### Multilingual Support (12 Languages)
+### Multilingual Support (11 Languages)
 - **🇬🇧🇪🇸 English ↔ Spanish**: Production-ready Wiktionary dictionaries (93K+ entries)
 - **🇬🇧🇨🇳 English ↔ Mandarin**: Full bidirectional Wiktionary support (4.6MB)
 - **🇬🇧🇫🇷 English ↔ French**: Complete Wiktionary integration (3.2MB)

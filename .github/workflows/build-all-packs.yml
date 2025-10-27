@@ -9,6 +9,10 @@ on:
       - 'tools/**'
       - '.github/workflows/build-all-packs.yml'
 
+permissions:
+  contents: write
+  releases: write
+
 jobs:
   build-bilingual:
     runs-on: ubuntu-latest
