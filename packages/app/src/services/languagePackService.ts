@@ -14,7 +14,8 @@ import {
 /**
  * Language Pack Download and Management Service
  * 
- * Handles downloading, installation, and management of offline translation models
+ * Handles downloading, installation, and management of offline dictionary packs
+ * for SQLite-based word lookup. ML Kit models are managed separately by the ML Kit service.
  */
 export class LanguagePackService {
   private static readonly PACKS_DIRECTORY = `${FileSystem.documentDirectory}language-packs/`;
@@ -303,10 +304,10 @@ export class LanguagePackService {
       await FileSystem.makeDirectoryAsync(installDir, { intermediates: true });
       console.log(`📦 Created install directory: ${installDir}`);
 
-      // Extract/install dictionary and models
+      // Extract/install dictionary (ML Kit models are handled separately)
       const dictionaryPath = `${installDir}${pack.dictionary.filename}`;
-      const modelPath1 = `${installDir}${pack.models.sourceToTarget.filename}`;
-      const modelPath2 = `${installDir}${pack.models.targetToSource.filename}`;
+      const metadataPath1 = `${installDir}mlkit-${pack.sourceLanguage}-${pack.targetLanguage}.meta`;
+      const metadataPath2 = `${installDir}mlkit-${pack.targetLanguage}-${pack.sourceLanguage}.meta`;
       
       console.log(`📦 Target dictionary path: ${dictionaryPath}`);
       
@@ -408,11 +409,23 @@ export class LanguagePackService {
       download.progress = 90;
       this.updateDownloadProgress(download);
       
-      // For model files, create placeholder files for now since we're focusing on dictionary
-      // TODO: Integrate with ML Kit model management
-      console.log(`📦 Creating placeholder model files...`);
-      await FileSystem.writeAsStringAsync(modelPath1, 'placeholder-model-1');
-      await FileSystem.writeAsStringAsync(modelPath2, 'placeholder-model-2');
+      // Note: Translation models are handled by ML Kit service automatically
+      // Dictionary packs only contain SQLite database files for word lookup
+      console.log(`📦 Language pack installation focuses on dictionary data only`);
+      await FileSystem.writeAsStringAsync(metadataPath1, JSON.stringify({
+        type: 'mlkit-metadata',
+        sourceLanguage: pack.sourceLanguage,
+        targetLanguage: pack.targetLanguage,
+        supported: pack.mlKitSupport.sourceToTarget,
+        estimatedSize: pack.mlKitSupport.downloadSize / 2
+      }));
+      await FileSystem.writeAsStringAsync(metadataPath2, JSON.stringify({
+        type: 'mlkit-metadata',
+        sourceLanguage: pack.targetLanguage,
+        targetLanguage: pack.sourceLanguage,
+        supported: pack.mlKitSupport.targetToSource,
+        estimatedSize: pack.mlKitSupport.downloadSize / 2
+      }));
 
       // Create installed pack record
       const installedPack: InstalledLanguagePack = {
@@ -420,9 +433,9 @@ export class LanguagePackService {
         manifest: pack,
         installedAt: new Date(),
         dictionaryPath: dictionaryPath,
-        modelPaths: {
-          sourceToTarget: modelPath1,
-          targetToSource: modelPath2
+        mlKitStatus: {
+          sourceToTarget: pack.mlKitSupport.sourceToTarget ? 'available' : 'error',
+          targetToSource: pack.mlKitSupport.targetToSource ? 'available' : 'error'
         },
         dictionaryLookups: 0,
         translationCount: 0,
