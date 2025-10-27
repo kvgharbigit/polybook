@@ -156,7 +156,7 @@ export default function BilingualTranslationPopup({
         const success = await LanguagePackManager.downloadLanguagePack(languageCode);
         
         if (success) {
-          // TODO: Implement ML Kit model downloads when Bergamot service is ready
+          // TODO: Integrate with ML Kit model management
           console.log('Language pack downloaded successfully. ML Kit models will be available in future update.');
         }
       }

@@ -65,6 +65,7 @@ function ReaderScreen() {
   const [showWordPopup, setShowWordPopup] = useState(false);
   const [currentLookupWord, setCurrentLookupWord] = useState<string>('');
   const [wordPopupPosition, setWordPopupPosition] = useState({ x: 0, y: 0 });
+  const [sentenceContext, setSentenceContext] = useState<string>('');
   
   // Success message state
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
@@ -374,6 +375,13 @@ function ReaderScreen() {
       }
     }
     
+    // Extract sentence context for translation
+    const currentContent = isEpub && chapters.length > 0 
+      ? chapters[currentChapterIndex]?.content || content
+      : content;
+    const context = extractContext(cleanWord, currentContent);
+    setSentenceContext(context);
+    
     // Show the new SQLite-powered dictionary popup
     setCurrentLookupWord(cleanWord);
     setWordPopupPosition({ x: pageX, y: pageY });
@@ -394,6 +402,7 @@ function ReaderScreen() {
   const handleCloseWordPopup = () => {
     setShowWordPopup(false);
     setCurrentLookupWord('');
+    setSentenceContext('');
   };
 
   const handleSaveWord = (word: string, definition: any) => {
@@ -436,22 +445,6 @@ function ReaderScreen() {
   };
 
 
-  const handleTranslateWord = async (word: string) => {
-    try {
-      console.log('Translating word:', word);
-      // TODO: Implement actual translation service
-      // For now, just retry the lookup
-      setIsLookingUp(true);
-      setLookupError(null);
-      const definition = await WordLookupService.lookupWord(word);
-      setWordDefinition(definition);
-    } catch (error) {
-      console.error('Error translating word:', error);
-      setLookupError('Translation failed. Please try again.');
-    } finally {
-      setIsLookingUp(false);
-    }
-  };
 
   const toggleTTS = () => {
     setIsTTSEnabled(!isTTSEnabled);
@@ -729,6 +722,7 @@ function ReaderScreen() {
         }}
         onSaveWord={handleSaveWord}
         onNavigateToLanguagePacks={() => navigate('LanguagePacksScreen')}
+        sentenceContext={sentenceContext}
       />
 
       {showSuccessMessage && (

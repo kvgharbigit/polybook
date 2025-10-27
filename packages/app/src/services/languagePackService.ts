@@ -407,7 +407,7 @@ export class LanguagePackService {
       this.updateDownloadProgress(download);
       
       // For model files, create placeholder files for now since we're focusing on dictionary
-      // TODO: Implement proper model extraction when Bergamot integration is ready
+      // TODO: Integrate with ML Kit model management
       console.log(`📦 Creating placeholder model files...`);
       await FileSystem.writeAsStringAsync(modelPath1, 'placeholder-model-1');
       await FileSystem.writeAsStringAsync(modelPath2, 'placeholder-model-2');

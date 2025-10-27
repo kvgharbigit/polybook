@@ -14,7 +14,7 @@ import { useNavigation } from '../navigation/SimpleNavigator';
 import { useTheme } from '../hooks/useTheme';
 import { UserLanguageProfile, DictionaryLookupResponse, BilingualWordDefinition } from '@polybook/shared/src/types';
 import SQLiteDictionaryService from '../services/sqliteDictionaryService';
-import BergamotTranslationService from '../services/bergamotTranslationService';
+import { Translation } from '../services';
 import UserLanguageProfileService from '../services/userLanguageProfileService';
 
 export default function DictionaryTestScreen() {
@@ -31,11 +31,11 @@ export default function DictionaryTestScreen() {
   const [initialized, setInitialized] = useState(false);
   const [serviceStatus, setServiceStatus] = useState<{
     sqliteReady: boolean;
-    bergamotReady: boolean;
+    translationReady: boolean;
     availableLanguages: string[];
   }>({
     sqliteReady: false,
-    bergamotReady: false,
+    translationReady: false,
     availableLanguages: []
   });
 
@@ -54,15 +54,14 @@ export default function DictionaryTestScreen() {
       // Initialize SQLite dictionary service
       await SQLiteDictionaryService.initialize([profile.nativeLanguage, ...profile.targetLanguages]);
       
-      // Initialize Bergamot translation service
-      await BergamotTranslationService.initialize();
+      // Translation service is ready immediately with new unified service
       
       // Get service status
       const availableLanguages = SQLiteDictionaryService.getAvailableLanguages();
       
       setServiceStatus({
         sqliteReady: true,
-        bergamotReady: BergamotTranslationService.isReady(),
+        translationReady: true, // Translation service is always ready
         availableLanguages
       });
       
@@ -114,16 +113,16 @@ export default function DictionaryTestScreen() {
       const sourceLanguage = userProfile.targetLanguages[0] || 'en';
       const targetLanguage = userProfile.nativeLanguage;
 
-      const result = await BergamotTranslationService.translateSentence({
-        text: sentenceText.trim(),
-        sourceLanguage,
-        targetLanguage
+      const result = await Translation.translate(sentenceText.trim(), {
+        from: sourceLanguage,
+        to: targetLanguage,
+        timeoutMs: 8000
       });
 
-      if (result.success && result.translatedText) {
-        setTranslationResult(result.translatedText);
+      if (result.text) {
+        setTranslationResult(result.text);
       } else {
-        Alert.alert('Translation Failed', result.error || 'Translation failed');
+        Alert.alert('Translation Failed', 'Translation failed');
       }
 
       console.log('🧪 Translation result:', result);
@@ -307,9 +306,9 @@ export default function DictionaryTestScreen() {
             </Text>
           </View>
           <View style={styles.profileInfo}>
-            <Text style={styles.profileLabel}>Bergamot Translation:</Text>
+            <Text style={styles.profileLabel}>Translation Service:</Text>
             <Text style={styles.profileValue}>
-              {serviceStatus.bergamotReady ? '✅ Ready (Placeholder)' : '❌ Not Ready'}
+              {serviceStatus.translationReady ? '✅ Ready' : '❌ Not Ready'}
             </Text>
           </View>
           <View style={styles.profileInfo}>
@@ -375,7 +374,7 @@ export default function DictionaryTestScreen() {
 
         {/* Sentence Translation Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Sentence Translation (Bergamot)</Text>
+          <Text style={styles.sectionTitle}>Sentence Translation</Text>
           
           <View style={styles.searchContainer}>
             <TextInput

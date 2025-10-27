@@ -1,0 +1,6 @@
+# Add this to android/app/build.gradle after running npx expo prebuild
+
+dependencies {
+    implementation 'com.google.mlkit:translate:17.0.2'  // ML Kit Translate
+    // ... other dependencies
+}

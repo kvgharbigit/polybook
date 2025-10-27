@@ -135,7 +135,7 @@ export class WiktextractService {
   private static async loadWiktextractData(): Promise<void> {
     try {
       // Try to load the built dictionary data (default Spanish-English pack)
-      const wiktextractData = require('../assets/dictionaries/wiktextract-es-en.json') as WiktextractData;
+      const wiktextractData = await import('../assets/dictionaries/wiktextract-es-en.json').then(m => m.default) as WiktextractData;
       this.dictionaryData = wiktextractData;
       
       console.log(`📚 WiktextractService: Loaded ${wiktextractData.metadata.totalEntries} entries from Wiktextract`);

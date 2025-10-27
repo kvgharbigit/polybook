@@ -97,7 +97,7 @@ export const LanguagePackSettings: React.FC<LanguagePackSettingsProps> = ({
       for (const lang of SUPPORTED_LANGUAGES) {
         const isDictionaryInstalled = installedLanguages.includes(lang.code);
         // TODO: Check for translator models separately
-        const isTranslatorInstalled = false; // Placeholder until Bergamot is implemented
+        const isTranslatorInstalled = false; // Placeholder until ML Kit is implemented
         
         console.log(`🔍 ${lang.code}: dictionary = ${isDictionaryInstalled}, translator = ${isTranslatorInstalled}`);
         packStatus[lang.code] = {
@@ -108,7 +108,7 @@ export const LanguagePackSettings: React.FC<LanguagePackSettingsProps> = ({
           dictionaryProgress: 0,
           translatorProgress: 0,
           dictionarySize: storageData.languagePacks.find(p => p.language === lang.code)?.size,
-          translatorSize: undefined // Will be populated when Bergamot models are implemented
+          translatorSize: undefined // Will be populated when ML Kit models are implemented
         };
       }
 
@@ -243,34 +243,42 @@ export const LanguagePackSettings: React.FC<LanguagePackSettingsProps> = ({
             }));
           }},
           { text: 'Download', onPress: async () => {
-            // TODO: Implement Bergamot model download
             console.log(`📥 Downloading translation model for ${languageCode}`);
             
-            // Simulate download progress
-            for (let i = 0; i <= 100; i += 10) {
+            try {
+              // Import ML Kit utilities dynamically
+              const { MlkitUtils } = await import('../services/mlkit');
+              
+              // Download the model
+              await MlkitUtils.ensureModel(languageCode);
+              
+              // Update state
               setLanguagePacks(prev => ({
                 ...prev,
                 [languageCode]: {
                   ...prev[languageCode],
-                  translatorProgress: i
+                  translatorInstalled: true,
+                  downloadingTranslator: false,
+                  translatorProgress: 100,
+                  translatorSize: 25 * 1024 * 1024 // ~25MB for ML Kit models
                 }
               }));
-              await new Promise(resolve => setTimeout(resolve, 200));
+
+              Alert.alert('Success', `${languageInfo.name} translation model installed successfully!\n\nYou can now translate text offline in this language.`);
+            } catch (error) {
+              console.error('ML Kit model download failed:', error);
+              
+              setLanguagePacks(prev => ({
+                ...prev,
+                [languageCode]: {
+                  ...prev[languageCode],
+                  downloadingTranslator: false,
+                  error: 'Translation model download failed'
+                }
+              }));
+              
+              Alert.alert('Download Failed', 'Translation model download failed. This feature requires a production build with ML Kit support.');
             }
-
-            // Update state
-            setLanguagePacks(prev => ({
-              ...prev,
-              [languageCode]: {
-                ...prev[languageCode],
-                translatorInstalled: true,
-                downloadingTranslator: false,
-                translatorProgress: 100,
-                translatorSize: 50 * 1024 * 1024 // 50MB placeholder
-              }
-            }));
-
-            Alert.alert('Success', `${languageInfo.name} translation model installed successfully!\n\nNote: This is a placeholder implementation. Real Bergamot models will be implemented later.`);
           }}
         ]
       );
@@ -331,9 +339,16 @@ export const LanguagePackSettings: React.FC<LanguagePackSettingsProps> = ({
               success = success && dictSuccess;
             }
 
-            // TODO: Remove translation models when Bergamot is implemented
+            // Remove ML Kit translation model
             if (hasTranslator) {
-              console.log(`🗑️ Removing translation model for ${languageCode} (placeholder)`);
+              try {
+                const { MlkitUtils } = await import('../services/mlkit');
+                await MlkitUtils.deleteModel(languageCode);
+                console.log(`🗑️ Removed translation model for ${languageCode}`);
+              } catch (error) {
+                console.error('Failed to remove ML Kit model:', error);
+                success = false;
+              }
             }
             
             if (success) {
@@ -498,7 +513,7 @@ export const LanguagePackSettings: React.FC<LanguagePackSettingsProps> = ({
           Total: {formatSize(storageInfo.totalSize)} • {storageInfo.languagePacks.length} dictionaries
         </Text>
         <Text style={styles.storageText}>
-          Translation models: Coming soon with Bergamot implementation
+          Translation models: Coming soon with ML Kit implementation
         </Text>
       </View>
 
@@ -520,7 +535,7 @@ export const LanguagePackSettings: React.FC<LanguagePackSettingsProps> = ({
         <Text style={styles.infoTitle}>ℹ️ About Language Packs</Text>
         <Text style={styles.infoText}>
           • Dictionary: Optimal bilingual dictionaries (Wiktionary){'\n'}
-          • Translator: Bergamot translation models for major languages{'\n'}
+          • Translator: ML Kit translation models for major languages{'\n'}
           • Strategy: Best source chosen per language pair (verified URLs){'\n'}
           • Coverage: English, Spanish, French, German, Italian, Portuguese, Russian, Korean, Arabic, Hindi{'\n'}
           • All resources work completely offline after download

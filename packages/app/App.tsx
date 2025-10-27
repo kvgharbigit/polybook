@@ -12,6 +12,7 @@ import LanguageProfileScreen from './src/screens/LanguageProfileScreen';
 import LanguagePacksScreen from './src/screens/LanguagePacksScreen';
 import DictionaryTestScreen from './src/screens/DictionaryTestScreen';
 import TranslationPerfHarness from './src/screens/TranslationPerfHarness';
+import TranslationModelsScreen from './src/screens/TranslationModelsScreen';
 import { useAppStore } from './src/store/appStore';
 
 function LoadingScreen() {
@@ -119,6 +120,12 @@ function AppContent() {
         return (
           <View style={styles.screenContainer}>
             <TranslationPerfHarness />
+          </View>
+        );
+      case 'TranslationModelsScreen':
+        return (
+          <View style={styles.screenContainer}>
+            <TranslationModelsScreen />
           </View>
         );
       default:

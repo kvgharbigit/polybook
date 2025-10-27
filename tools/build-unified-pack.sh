@@ -382,6 +382,11 @@ echo "✅ Built: $OUT_DIR/${PAIR}.sqlite.zip ($(numfmt --to=iec $bytes))"
 echo "📄 Metadata: $OUT_DIR/${PAIR}.json"
 echo "📊 Source: $SOURCE ($SIZE → $(numfmt --to=iec $bytes))"
 
+# Debug: Show exactly what was produced
+echo "OUT_DIR=$OUT_DIR"
+echo "Files produced:"
+ls -lh "$OUT_DIR" || true
+
 # Cleanup
 cd ..
 rm -rf "$WORK_DIR"

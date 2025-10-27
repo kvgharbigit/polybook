@@ -32,7 +32,7 @@ export interface TranslationPreferences {
   animationDuration: number;
   
   // Translation service preferences
-  preferBergamot: boolean; // Prefer Bergamot over other services when available
+  preferOffline: boolean; // Prefer offline translation when available
   enableOfflineOnly: boolean; // Only use offline translation
   enableFallbackServices: boolean; // Use fallback services if primary fails
   
@@ -82,7 +82,7 @@ export const DEFAULT_TRANSLATION_PREFERENCES: TranslationPreferences = {
   animationDuration: 300,
   
   // Services
-  preferBergamot: true,
+  preferOffline: true,
   enableOfflineOnly: false,
   enableFallbackServices: true,
   
@@ -300,11 +300,11 @@ export class TranslationPreferencesService {
   }
 
   /**
-   * Check if Bergamot should be used for translation
+   * Check if offline translation should be used
    */
-  static async shouldUseBergamot(): Promise<boolean> {
+  static async shouldUseOffline(): Promise<boolean> {
     const prefs = await this.getPreferences();
-    return prefs.preferBergamot;
+    return prefs.preferOffline;
   }
 
   /**

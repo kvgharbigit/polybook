@@ -13,6 +13,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { BilingualWordDefinition, DictionaryLookupResponse } from '@polybook/shared/src/types';
 import SQLiteDictionaryService from '../services/sqliteDictionaryService';
+import { Translation } from '../services';
 
 interface WordPopupProps {
   word: string;
@@ -25,6 +26,7 @@ interface WordPopupProps {
   };
   onSaveWord?: (word: string, definition: BilingualWordDefinition) => void;
   onNavigateToLanguagePacks?: () => void;
+  sentenceContext?: string; // Full sentence containing the word
 }
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -37,9 +39,13 @@ export const WordPopup: React.FC<WordPopupProps> = ({
   userProfile,
   onSaveWord,
   onNavigateToLanguagePacks,
+  sentenceContext,
 }) => {
   const [lookupResult, setLookupResult] = useState<DictionaryLookupResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [translationResult, setTranslationResult] = useState<string | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [showTranslation, setShowTranslation] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [scaleAnim] = useState(new Animated.Value(0.8));
 
@@ -120,6 +126,38 @@ export const WordPopup: React.FC<WordPopupProps> = ({
   const handleSaveWord = () => {
     if (lookupResult?.success && lookupResult.primaryDefinition && onSaveWord) {
       onSaveWord(word, lookupResult.primaryDefinition);
+    }
+  };
+
+  const handleTranslateSentence = async () => {
+    if (!sentenceContext || isTranslating) return;
+    
+    setIsTranslating(true);
+    try {
+      // Detect source language from user profile
+      const sourceLanguage = userProfile.targetLanguages[0] || 'en';
+      const targetLanguage = userProfile.nativeLanguage;
+      
+      console.log(`Translating sentence: "${sentenceContext}" from ${sourceLanguage} to ${targetLanguage}`);
+      
+      const result = await Translation.translate(sentenceContext, {
+        from: sourceLanguage,
+        to: targetLanguage,
+        timeoutMs: 8000
+      });
+      
+      if (result.text) {
+        setTranslationResult(result.text);
+        setShowTranslation(true);
+      } else {
+        throw new Error('Translation failed');
+      }
+    } catch (error) {
+      console.error('Translation error:', error);
+      setTranslationResult('Translation failed. Please try again.');
+      setShowTranslation(true);
+    } finally {
+      setIsTranslating(false);
     }
   };
 
@@ -269,6 +307,43 @@ export const WordPopup: React.FC<WordPopupProps> = ({
             </View>
           )}
         </View>
+
+        {/* Sentence Translation Section */}
+        {sentenceContext && (
+          <View style={styles.translationSection}>
+            <View style={styles.translationHeader}>
+              <Ionicons name="language-outline" size={20} color="#007AFF" />
+              <Text style={styles.translationTitle}>Translate Sentence</Text>
+            </View>
+            
+            <View style={styles.sentenceContainer}>
+              <Text style={styles.sentenceLabel}>Original:</Text>
+              <Text style={styles.sentenceText}>{sentenceContext}</Text>
+            </View>
+            
+            {showTranslation && translationResult && (
+              <View style={styles.translationContainer}>
+                <Text style={styles.translationLabel}>Translation:</Text>
+                <Text style={styles.translationText}>{translationResult}</Text>
+              </View>
+            )}
+            
+            <TouchableOpacity 
+              style={[styles.translateButton, isTranslating && styles.translateButtonDisabled]}
+              onPress={handleTranslateSentence}
+              disabled={isTranslating}
+            >
+              {isTranslating ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="language-outline" size={16} color="#FFFFFF" />
+              )}
+              <Text style={styles.translateButtonText}>
+                {isTranslating ? 'Translating...' : showTranslation ? 'Translate Again' : 'Translate Sentence'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     );
   };
@@ -593,6 +668,82 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   downloadButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  translationSection: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  translationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  translationTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#007AFF',
+  },
+  sentenceContainer: {
+    marginBottom: 12,
+    padding: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#007AFF',
+  },
+  sentenceLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  sentenceText: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 20,
+  },
+  translationContainer: {
+    marginBottom: 12,
+    padding: 12,
+    backgroundColor: 'rgba(0, 122, 255, 0.05)',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#4CAF50',
+  },
+  translationLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4CAF50',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  translationText: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+  translateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  translateButtonDisabled: {
+    backgroundColor: '#CCCCCC',
+  },
+  translateButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',

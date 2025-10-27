@@ -484,9 +484,9 @@ export class StarDictProcessor {
   }
 
   /**
-   * Get available FreeDict URLs for popular language pairs
+   * Get available Wiktionary dictionary URLs for popular language pairs  
    */
-  static getFreedictUrls(): Record<string, {
+  static getWiktionaryUrls(): Record<string, {
     url: string;
     description: string;
     size: number;
@@ -494,28 +494,28 @@ export class StarDictProcessor {
   }> {
     return {
       'en': {
-        url: 'https://download.freedict.org/dictionaries/eng-spa/2024.10.10/freedict-eng-spa-2024.10.10.stardict.tar.xz',
-        description: 'English → Spanish (FreeDict)',
+        url: 'https://github.com/kvgharbigit/polybook/releases/latest/download/eng-spa.sqlite.zip',
+        description: 'English → Spanish (Wiktionary)',
         size: 4681940,
-        entries: '60,000+'
+        entries: '43,000+'
       },
       'es': {
-        url: 'https://download.freedict.org/dictionaries/spa-eng/0.3.1/freedict-spa-eng-0.3.1.stardict.tar.xz',
-        description: 'Spanish → English (FreeDict)',
-        size: 94784,
-        entries: '4,500+'
+        url: 'https://github.com/kvgharbigit/polybook/releases/latest/download/spa-eng.sqlite.zip',
+        description: 'Spanish → English (Wiktionary)',
+        size: 4681940,
+        entries: '43,000+'
       },
       'fr': {
-        url: 'https://download.freedict.org/dictionaries/eng-fra/2024.10.10/freedict-eng-fra-2024.10.10.stardict.tar.xz',
-        description: 'English → French (FreeDict)',
-        size: 4200000,
-        entries: '70,000+'
+        url: 'https://github.com/kvgharbigit/polybook/releases/latest/download/fra-eng.sqlite.zip',
+        description: 'French ↔ English (Wiktionary)',
+        size: 3200000,
+        entries: '43,000+'
       },
       'de': {
-        url: 'https://download.freedict.org/dictionaries/eng-deu/2024.10.10/freedict-eng-deu-2024.10.10.stardict.tar.xz',
-        description: 'English → German (FreeDict)',
-        size: 5800000,
-        entries: '120,000+'
+        url: 'https://github.com/kvgharbigit/polybook/releases/latest/download/deu-eng.sqlite.zip',
+        description: 'German ↔ English (Wiktionary)',
+        size: 6900000,
+        entries: '43,000+'
       }
     };
   }

@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import TranslatorHost from '../translation/TranslatorHost';
-import BergamotService from '../translation/BergamotService';
+import { Translation } from '../services';
 
 const TEST_SENTENCES = [
   'This is a short sentence.',
@@ -44,7 +43,7 @@ export default function TranslationPerfHarness() {
     clearLogs();
     
     try {
-      addLog('🚀 Starting Bergamot performance test...', 'info');
+      addLog('🚀 Starting translation performance test...', 'info');
       
       // Warmup phase
       addLog('⏱️ Warmup phase...', 'info');
@@ -66,21 +65,19 @@ export default function TranslationPerfHarness() {
         const startTime = Date.now();
         
         try {
-          const result = await BergamotService.translateSentence(
+          const result = await Translation.translate(
             sentence, 
-            'en', 
-            'es', 
-            { timeoutMs: 8000 }
+            { from: 'en', to: 'es', timeoutMs: 8000 }
           );
           
           const endTime = Date.now();
           const duration = endTime - startTime;
           times.push(duration);
           
-          if (result.success) {
-            addLog(`✅ ${duration}ms → "${result.translatedText}"`, 'success');
+          if (result.text) {
+            addLog(`✅ ${duration}ms → "${result.text}"`, 'success');
           } else {
-            addLog(`❌ ${duration}ms → Error: ${result.error}`, 'error');
+            addLog(`❌ ${duration}ms → No translation returned`, 'error');
           }
         } catch (error) {
           const endTime = Date.now();
@@ -117,17 +114,15 @@ export default function TranslationPerfHarness() {
       const batchStart = Date.now();
       
       try {
-        const batchResults = await BergamotService.translateSentences(
-          TEST_SENTENCES.slice(0, 3), // First 3 sentences
-          'en',
-          'es',
-          { timeoutMs: 15000 }
-        );
+        // Batch translation - simulate with individual calls
+        const batchResults = await Promise.all(TEST_SENTENCES.map(sentence => 
+          Translation.translate(sentence, { from: 'en', to: 'es' })
+        ));
         
         const batchEnd = Date.now();
         const batchDuration = batchEnd - batchStart;
         
-        const successCount = batchResults.filter(r => r.success).length;
+        const successCount = batchResults.filter(r => r.text).length;
         addLog(`✅ Batch completed: ${successCount}/${batchResults.length} successful in ${batchDuration}ms`, 'success');
       } catch (error) {
         const batchEnd = Date.now();
@@ -157,11 +152,9 @@ export default function TranslationPerfHarness() {
       // Create 20 concurrent translation requests
       for (let i = 0; i < 20; i++) {
         const sentence = TEST_SENTENCES[i % TEST_SENTENCES.length];
-        const promise = BergamotService.translateSentence(
+        const promise = Translation.translate(
           `${sentence} (request ${i + 1})`,
-          'en',
-          'es',
-          { timeoutMs: 10000 }
+          { from: 'en', to: 'es', timeoutMs: 10000 }
         );
         promises.push(promise);
       }
@@ -170,7 +163,7 @@ export default function TranslationPerfHarness() {
       const stressEnd = Date.now();
       const stressDuration = stressEnd - stressStart;
       
-      const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+      const successful = results.filter(r => r.status === 'fulfilled' && r.value.text).length;
       const failed = results.length - successful;
       
       addLog(`🔥 Stress test completed in ${stressDuration}ms`, 'timing');
@@ -222,10 +215,9 @@ export default function TranslationPerfHarness() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <TranslatorHost />
       
       <View style={styles.header}>
-        <Text style={styles.title}>Bergamot Performance Test</Text>
+        <Text style={styles.title}>Translation Performance Test</Text>
       </View>
       
       <View style={styles.controls}>

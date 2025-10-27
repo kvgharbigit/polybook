@@ -12,7 +12,7 @@ import {
   Vibration
 } from 'react-native';
 import { useTheme } from '../hooks/useTheme';
-import BergamotService, { BergamotTranslationResponse } from '../translation/BergamotService';
+import { Translation, TranslationResult as ServiceResult } from '../services';
 import { TranslationPreferencesService, TranslationContext, TranslationAction } from '../services/translationPreferencesService';
 import { DictionaryService } from '../services/dictionaryService';
 
@@ -44,7 +44,7 @@ export interface TranslationResult {
   };
   sourceLanguage: string;
   targetLanguage: string;
-  translationMethod: 'bergamot' | 'dictionary' | 'fallback';
+  translationMethod: 'online' | 'mlkit' | 'dictionary' | 'fallback';
 }
 
 interface TranslationPopupProps {
@@ -167,14 +167,22 @@ export default function TranslationPopup({
       const promises: Promise<any>[] = [];
       const [sourceLanguage, targetLanguage] = context.languagePair;
 
-      let wordTranslation: BergamotTranslationResponse | null = null;
-      let sentenceTranslation: BergamotTranslationResponse | null = null;
+      let wordTranslation: ServiceResult | null = null;
+      let sentenceTranslation: ServiceResult | null = null;
       let definitions: WordDefinition[] = [];
+
+      // Ensure models are available (no-op in Expo Go, downloads in Dev Client)
+      await Translation.ensureModel(sourceLanguage);
+      await Translation.ensureModel(targetLanguage);
 
       // Word translation
       if (config.showWord && action !== 'sentence') {
         promises.push(
-          BergamotService.translateSentence(context.selectedText, sourceLanguage, targetLanguage)
+          Translation.translate(context.selectedText, { 
+            from: sourceLanguage, 
+            to: targetLanguage, 
+            timeoutMs: 8000 
+          })
             .then(result => { wordTranslation = result; })
             .catch(err => console.error('Word translation failed:', err))
         );
@@ -197,7 +205,11 @@ export default function TranslationPopup({
       if (config.showSentence && action !== 'word') {
         const sentenceToTranslate = context.fullSentence || context.selectedText;
         promises.push(
-          BergamotService.translateSentence(sentenceToTranslate, sourceLanguage, targetLanguage)
+          Translation.translate(sentenceToTranslate, { 
+            from: sourceLanguage, 
+            to: targetLanguage, 
+            timeoutMs: 8000 
+          })
             .then(result => { sentenceTranslation = result; })
             .catch(err => console.error('Sentence translation failed:', err))
         );
@@ -210,23 +222,23 @@ export default function TranslationPopup({
       const result: TranslationResult = {
         sourceLanguage,
         targetLanguage,
-        translationMethod: 'bergamot'
+        translationMethod: 'online' // Will be 'online' in Expo Go, 'mlkit' in Dev Client
       };
 
-      if (wordTranslation && config.showWord && wordTranslation.success) {
+      if (wordTranslation && config.showWord && wordTranslation.text) {
         result.word = {
           original: context.selectedText,
-          translated: wordTranslation.translatedText || '',
+          translated: wordTranslation.text,
           definitions: definitions.length > 0 ? definitions : undefined,
           pronunciation: definitions[0]?.pronunciation
         };
       }
 
-      if (sentenceTranslation && config.showSentence && sentenceTranslation.success) {
+      if (sentenceTranslation && config.showSentence && sentenceTranslation.text) {
         result.sentence = {
           original: context.fullSentence || context.selectedText,
-          translated: sentenceTranslation.translatedText || '',
-          confidence: sentenceTranslation.qualityHint ? Math.exp(sentenceTranslation.qualityHint) : undefined
+          translated: sentenceTranslation.text,
+          confidence: 0.8 // Default confidence since unified service doesn't provide this yet
         };
       }
 

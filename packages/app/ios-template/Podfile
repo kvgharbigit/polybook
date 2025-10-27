@@ -1,0 +1,6 @@
+# Add this to ios/Podfile after running npx expo prebuild
+
+target 'PolyBook' do
+  pod 'GoogleMLKit/Translate', '~> 4.2.0'  # or latest version
+  # ... other pods
+end

@@ -32,7 +32,8 @@
     "plugins": [
       "expo-sqlite",
       "expo-document-picker",
-      "expo-file-system"
+      "expo-file-system",
+      "expo-dev-client"
     ],
     "scheme": "polybook",
     "experiments": {

@@ -5,6 +5,7 @@ import { useNavigation } from '../navigation/SimpleNavigator';
 import { useTheme } from '../hooks/useTheme';
 import { useFont } from '../hooks/useFont';
 import { ttsService, TTSVoice } from '../services/ttsService';
+import { getServiceInfo } from '../services';
 import { Theme } from '@polybook/shared/src/types';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import LanguagePackSettings from '../components/LanguagePackSettings';
@@ -26,6 +27,7 @@ export default function SettingsScreen() {
   const [autoSaveWords, setAutoSaveWords] = useState(true);
   const [availableVoices, setAvailableVoices] = useState<TTSVoice[]>([]);
   const [currentVoice, setCurrentVoice] = useState<TTSVoice | undefined>();
+  const [translationServiceInfo] = useState(getServiceInfo());
   const [ttsRate, setTtsRate] = useState(1.0);
   const [ttsPitch, setTtsPitch] = useState(1.0);
   const [showLanguagePackSettings, setShowLanguagePackSettings] = useState(false);
@@ -285,6 +287,43 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={styles.navigationItem}
             onPress={() => {
+              navigate('TranslationModelsScreen');
+            }}
+          >
+            <View style={styles.navigationItemContent}>
+              <Text style={styles.navigationItemIcon}>🔄</Text>
+              <View style={styles.navigationItemText}>
+                <Text style={styles.navigationItemTitle}>Translation Models</Text>
+                <Text style={styles.navigationItemDescription}>
+                  Manage offline translation models
+                </Text>
+              </View>
+              <Text style={styles.navigationItemArrow}>→</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Translation Status */}
+          <View style={styles.statusContainer}>
+            <View style={styles.statusHeader}>
+              <Text style={styles.statusIcon}>🌍</Text>
+              <Text style={styles.statusTitle}>Translation Engine</Text>
+            </View>
+            <View style={styles.statusContent}>
+              <Text style={styles.statusEngine}>
+                {translationServiceInfo.engine === 'online' ? '🌐 Online' : '📱 Offline'} ({translationServiceInfo.engine.toUpperCase()})
+              </Text>
+              <Text style={styles.statusDescription}>{translationServiceInfo.description}</Text>
+              {translationServiceInfo.isExpoGo && (
+                <Text style={styles.statusWarning}>
+                  ⚠️ Development mode - Build production app for offline translation
+                </Text>
+              )}
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.navigationItem}
+            onPress={() => {
               navigate('DictionaryTestScreen');
             }}
           >
@@ -309,9 +348,9 @@ export default function SettingsScreen() {
             <View style={styles.navigationItemContent}>
               <Text style={styles.navigationItemIcon}>🚀</Text>
               <View style={styles.navigationItemText}>
-                <Text style={styles.navigationItemTitle}>Bergamot Performance Test</Text>
+                <Text style={styles.navigationItemTitle}>Translation Performance Test</Text>
                 <Text style={styles.navigationItemDescription}>
-                  Test WebView-based translation performance
+                  Test translation engine performance
                 </Text>
               </View>
               <Text style={styles.navigationItemArrow}>→</Text>
@@ -738,5 +777,48 @@ const createStyles = (theme: any) => StyleSheet.create({
     fontSize: 18,
     color: theme.colors.textSecondary,
     marginLeft: 8,
+  },
+  statusContainer: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: 12,
+    padding: 16,
+  },
+  statusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  statusIcon: {
+    fontSize: 20,
+    marginRight: 12,
+  },
+  statusTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  statusContent: {
+    paddingLeft: 32,
+  },
+  statusEngine: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.primary,
+    marginBottom: 6,
+  },
+  statusDescription: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: 6,
+  },
+  statusWarning: {
+    fontSize: 12,
+    color: '#FF8C00',
+    fontWeight: '500',
+    lineHeight: 16,
   },
 });

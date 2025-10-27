@@ -20,6 +20,13 @@ jest.mock('expo-file-system', () => ({
 }));
 
 jest.mock('expo-sqlite', () => ({
+  openDatabaseAsync: jest.fn(() => Promise.resolve({
+    getAllAsync: jest.fn(() => Promise.resolve([])),
+    runAsync: jest.fn(() => Promise.resolve({ changes: 0, lastInsertRowId: 0 })),
+    execAsync: jest.fn(() => Promise.resolve()),
+    closeAsync: jest.fn(() => Promise.resolve()),
+  })),
+  // Legacy support for old tests
   openDatabase: jest.fn(() => ({
     transaction: jest.fn(),
     exec: jest.fn(),

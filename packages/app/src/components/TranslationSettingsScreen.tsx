@@ -319,10 +319,10 @@ export default function TranslationSettingsScreen({ onBack }: TranslationSetting
         <Text style={styles.categoryTitle}>🌐 Translation Services</Text>
 
         {renderSwitch(
-          'Prefer Bergamot',
-          'Use Bergamot offline translation when available',
-          preferences.preferBergamot,
-          (value) => updatePreference('preferBergamot', value)
+          'Prefer Offline',
+          'Use offline translation when available (ML Kit)',
+          preferences.preferOffline,
+          (value) => updatePreference('preferOffline', value)
         )}
 
         {renderSwitch(
