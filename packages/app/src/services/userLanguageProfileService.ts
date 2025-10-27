@@ -157,11 +157,21 @@ export class UserLanguageProfileService {
    * Detect user's preferred language based on device settings
    */
   static detectDeviceLanguage(): string {
-    // Try to get device language
-    const deviceLanguage = 
-      (global as any).navigator?.language || 
-      (global as any).navigator?.languages?.[0] || 
-      'en';
+    // Try to get device language with proper type checking
+    let deviceLanguage = 'en'; // default fallback
+    
+    try {
+      if (typeof global !== 'undefined') {
+        const nav = (global as { navigator?: { language?: string; languages?: string[] } }).navigator;
+        if (nav?.language) {
+          deviceLanguage = nav.language;
+        } else if (nav?.languages?.[0]) {
+          deviceLanguage = nav.languages[0];
+        }
+      }
+    } catch (error) {
+      console.warn('Could not detect device language, using default:', error);
+    }
 
     // Extract language code (e.g., 'en-US' -> 'en')
     const languageCode = deviceLanguage.split('-')[0].toLowerCase();

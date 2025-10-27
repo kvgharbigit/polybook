@@ -12,6 +12,7 @@ import LanguageProfileScreen from './src/screens/LanguageProfileScreen';
 import LanguagePacksScreen from './src/screens/LanguagePacksScreen';
 import DictionaryTestScreen from './src/screens/DictionaryTestScreen';
 import TranslationPerfHarness from './src/screens/TranslationPerfHarness';
+import MLKitTestScreen from './src/screens/MLKitTestScreen';
 import TranslationModelsScreen from './src/screens/TranslationModelsScreen';
 import { useAppStore } from './src/store/appStore';
 
@@ -120,6 +121,12 @@ function AppContent() {
         return (
           <View style={styles.screenContainer}>
             <TranslationPerfHarness />
+          </View>
+        );
+      case 'MLKitTestScreen':
+        return (
+          <View style={styles.screenContainer}>
+            <MLKitTestScreen />
           </View>
         );
       case 'TranslationModelsScreen':

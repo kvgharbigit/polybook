@@ -1,0 +1,387 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Translation, MlkitUtils } from '../services';
+
+interface TestResult {
+  id: string;
+  phrase: string;
+  from: string;
+  to: string;
+  result: string;
+  duration: number;
+  status: 'success' | 'error';
+  timestamp: number;
+}
+
+const TEST_PHRASES = [
+  { text: 'Hello world', from: 'en', to: 'es' },
+  { text: 'Good morning', from: 'en', to: 'fr' }, 
+  { text: 'Thank you', from: 'en', to: 'de' },
+  { text: 'How are you?', from: 'en', to: 'it' },
+  { text: 'I love reading books', from: 'en', to: 'es' },
+  { text: 'The weather is beautiful today', from: 'en', to: 'fr' },
+  { text: 'Buenos días', from: 'es', to: 'en' },
+  { text: 'Merci beaucoup', from: 'fr', to: 'en' },
+  { text: 'Guten Tag', from: 'de', to: 'en' },
+  { text: 'Come stai?', from: 'it', to: 'en' },
+];
+
+export default function MLKitTestScreen() {
+  const [results, setResults] = useState<TestResult[]>([]);
+  const [isRunning, setIsRunning] = useState(false);
+  const [mlkitStatus, setMlkitStatus] = useState<string>('checking...');
+  const [installedModels, setInstalledModels] = useState<string[]>([]);
+
+  useEffect(() => {
+    checkMLKitStatus();
+  }, []);
+
+  const checkMLKitStatus = async () => {
+    try {
+      const isAvailable = MlkitUtils.isAvailable();
+      
+      if (isAvailable) {
+        setMlkitStatus('✅ ML Kit Available');
+        const models = await MlkitUtils.getInstalledModels();
+        setInstalledModels(models);
+      } else {
+        setMlkitStatus('❌ ML Kit Not Available (Use Dev Client)');
+      }
+    } catch (error) {
+      setMlkitStatus(`❌ Error: ${error.message}`);
+    }
+  };
+
+  const addResult = (result: Omit<TestResult, 'id' | 'timestamp'>) => {
+    const newResult: TestResult = {
+      ...result,
+      id: `${Date.now()}-${Math.random()}`,
+      timestamp: Date.now(),
+    };
+    setResults(prev => [newResult, ...prev]);
+  };
+
+  const runSingleTest = async (phrase: typeof TEST_PHRASES[0]) => {
+    const startTime = Date.now();
+    
+    try {
+      console.log(`🧪 Testing: "${phrase.text}" (${phrase.from} → ${phrase.to})`);
+      
+      const result = await Translation.translate(phrase.text, {
+        from: phrase.from,
+        to: phrase.to,
+        timeoutMs: 10000
+      });
+      
+      const duration = Date.now() - startTime;
+      
+      if (result.text) {
+        addResult({
+          phrase: phrase.text,
+          from: phrase.from,
+          to: phrase.to,
+          result: result.text,
+          duration,
+          status: 'success'
+        });
+        
+        console.log(`✅ ${duration}ms: "${result.text}"`);
+      } else {
+        addResult({
+          phrase: phrase.text,
+          from: phrase.from,
+          to: phrase.to,
+          result: 'No translation returned',
+          duration,
+          status: 'error'
+        });
+      }
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      addResult({
+        phrase: phrase.text,
+        from: phrase.from,
+        to: phrase.to,
+        result: error.message,
+        duration,
+        status: 'error'
+      });
+      
+      console.error(`❌ ${duration}ms: ${error.message}`);
+    }
+  };
+
+  const runAllTests = async () => {
+    if (isRunning) return;
+    
+    setIsRunning(true);
+    setResults([]);
+    
+    try {
+      console.log('🚀 Starting ML Kit translation tests...');
+      
+      for (const phrase of TEST_PHRASES) {
+        await runSingleTest(phrase);
+        
+        // Small delay between tests
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      console.log('🏁 All tests completed!');
+      
+    } catch (error) {
+      console.error('Test suite failed:', error);
+      Alert.alert('Test Failed', error.message);
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const downloadModel = async (language: string) => {
+    try {
+      console.log(`📥 Downloading ${language} model...`);
+      await Translation.ensureModel(language);
+      console.log(`✅ ${language} model ready`);
+      
+      // Refresh installed models
+      await checkMLKitStatus();
+      Alert.alert('Success', `${language} model downloaded successfully`);
+    } catch (error) {
+      console.error(`Failed to download ${language} model:`, error);
+      Alert.alert('Download Failed', error.message);
+    }
+  };
+
+  const clearResults = () => {
+    setResults([]);
+  };
+
+  const renderResult = (result: TestResult) => {
+    return (
+      <View key={result.id} style={[
+        styles.resultItem,
+        result.status === 'success' ? styles.successItem : styles.errorItem
+      ]}>
+        <Text style={styles.resultPhrase}>
+          "{result.phrase}" ({result.from} → {result.to})
+        </Text>
+        <Text style={styles.resultTranslation}>
+          {result.status === 'success' ? '✅' : '❌'} {result.result}
+        </Text>
+        <Text style={styles.resultTiming}>
+          {result.duration}ms • {new Date(result.timestamp).toLocaleTimeString()}
+        </Text>
+      </View>
+    );
+  };
+
+  const successCount = results.filter(r => r.status === 'success').length;
+  const errorCount = results.filter(r => r.status === 'error').length;
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <Text style={styles.title}>ML Kit Translation Test</Text>
+      
+      <View style={styles.statusSection}>
+        <Text style={styles.statusText}>{mlkitStatus}</Text>
+        
+        {installedModels.length > 0 && (
+          <Text style={styles.modelsText}>
+            Installed Models: {installedModels.join(', ')}
+          </Text>
+        )}
+      </View>
+
+      <View style={styles.controls}>
+        <TouchableOpacity
+          style={[styles.button, styles.primaryButton, isRunning && styles.disabledButton]}
+          onPress={runAllTests}
+          disabled={isRunning}
+        >
+          <Text style={styles.buttonText}>
+            {isRunning ? '⏱️ Testing...' : '🧪 Run All Tests'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.button, styles.secondaryButton]}
+          onPress={clearResults}
+        >
+          <Text style={styles.buttonText}>🗑️ Clear</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.modelControls}>
+        <Text style={styles.sectionTitle}>Download Models:</Text>
+        <View style={styles.modelButtons}>
+          {['es', 'fr', 'de', 'it'].map(lang => (
+            <TouchableOpacity
+              key={lang}
+              style={[
+                styles.modelButton,
+                installedModels.includes(lang) && styles.installedModel
+              ]}
+              onPress={() => downloadModel(lang)}
+            >
+              <Text style={styles.modelButtonText}>
+                {lang.toUpperCase()} {installedModels.includes(lang) ? '✅' : '📥'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {results.length > 0 && (
+        <View style={styles.statsSection}>
+          <Text style={styles.statsText}>
+            Results: {successCount} ✅ / {errorCount} ❌ / {results.length} total
+          </Text>
+          {successCount > 0 && (
+            <Text style={styles.statsText}>
+              Avg Speed: {Math.round(
+                results
+                  .filter(r => r.status === 'success')
+                  .reduce((sum, r) => sum + r.duration, 0) / successCount
+              )}ms
+            </Text>
+          )}
+        </View>
+      )}
+
+      <ScrollView style={styles.resultsList} showsVerticalScrollIndicator={false}>
+        {results.map(renderResult)}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    padding: 16,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#333',
+  },
+  statusSection: {
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  statusText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  modelsText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  controls: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  button: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  primaryButton: {
+    backgroundColor: '#007AFF',
+  },
+  secondaryButton: {
+    backgroundColor: '#666',
+  },
+  disabledButton: {
+    backgroundColor: '#ccc',
+  },
+  buttonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  modelControls: {
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  modelButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  modelButton: {
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  installedModel: {
+    backgroundColor: '#e8f5e8',
+    borderColor: '#4CAF50',
+  },
+  modelButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#333',
+  },
+  statsSection: {
+    backgroundColor: 'white',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  statsText: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  resultsList: {
+    flex: 1,
+  },
+  resultItem: {
+    backgroundColor: 'white',
+    padding: 12,
+    marginBottom: 8,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+  },
+  successItem: {
+    borderLeftColor: '#4CAF50',
+  },
+  errorItem: {
+    borderLeftColor: '#F44336',
+  },
+  resultPhrase: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
+    color: '#333',
+  },
+  resultTranslation: {
+    fontSize: 14,
+    marginBottom: 4,
+    fontFamily: 'monospace',
+  },
+  resultTiming: {
+    fontSize: 12,
+    color: '#666',
+  },
+});

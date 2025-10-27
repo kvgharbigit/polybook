@@ -173,13 +173,29 @@ class DatabaseService {
       ORDER BY p.updated_at DESC, b.added_at DESC
     `);
 
-    return (result as any[]).map(row => ({
+    interface BookRow {
+      id: string;
+      title: string;
+      author: string;
+      language: string;
+      target_language: string;
+      format: string;
+      file_path: string;
+      cover_path: string;
+      added_at: string;
+      last_opened_at: string;
+      progress?: number;
+      y_offset?: number;
+      updated_at?: string;
+    }
+
+    return (result as BookRow[]).map(row => ({
       id: row.id,
       title: row.title,
       author: row.author,
       language: row.language,
       targetLanguage: row.target_language,
-      format: row.format as any,
+      format: row.format as Book['format'],
       filePath: row.file_path,
       coverPath: row.cover_path,
       addedAt: new Date(row.added_at),
@@ -188,7 +204,7 @@ class DatabaseService {
         bookId: row.id,
         spineIndex: 0,
         yOffset: row.y_offset || 0,
-        updatedAt: new Date(row.updated_at),
+        updatedAt: new Date(row.updated_at || row.added_at),
       } : undefined,
     }));
   }
@@ -199,7 +215,7 @@ class DatabaseService {
     const result = await this.db.getFirstAsync(
       'SELECT * FROM books WHERE id = ?',
       [id],
-    ) as any;
+    ) as BookRow | null;
 
     if (!result) return null;
 
@@ -209,7 +225,7 @@ class DatabaseService {
       author: result.author,
       language: result.language,
       targetLanguage: result.target_language,
-      format: result.format,
+      format: result.format as Book['format'],
       filePath: result.file_path,
       coverPath: result.cover_path,
       addedAt: new Date(result.added_at),

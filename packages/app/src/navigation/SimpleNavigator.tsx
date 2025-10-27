@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
 // Navigation types
-export type Screen = 'Home' | 'Library' | 'Reader' | 'Vocabulary' | 'Settings' | 'LanguageProfileScreen' | 'LanguagePacksScreen' | 'DictionaryTestScreen' | 'TranslationPerfHarness';
+export type Screen = 'Home' | 'Library' | 'Reader' | 'Vocabulary' | 'Settings' | 'LanguageProfileScreen' | 'LanguagePacksScreen' | 'DictionaryTestScreen' | 'TranslationPerfHarness' | 'MLKitTestScreen';
 
 export interface NavigationState {
   currentScreen: Screen;

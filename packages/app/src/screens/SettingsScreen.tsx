@@ -356,6 +356,24 @@ export default function SettingsScreen() {
               <Text style={styles.navigationItemArrow}>→</Text>
             </View>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.navigationItem}
+            onPress={() => {
+              navigate('MLKitTestScreen');
+            }}
+          >
+            <View style={styles.navigationItemContent}>
+              <Text style={styles.navigationItemIcon}>🧪</Text>
+              <View style={styles.navigationItemText}>
+                <Text style={styles.navigationItemTitle}>ML Kit Translation Test</Text>
+                <Text style={styles.navigationItemDescription}>
+                  Test ML Kit with real phrases (Dev Client only)
+                </Text>
+              </View>
+              <Text style={styles.navigationItemArrow}>→</Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Reading Features Section */}

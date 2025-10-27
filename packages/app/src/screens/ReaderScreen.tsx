@@ -10,7 +10,6 @@ import TranslationPopup, { WordDefinition } from '../components/TranslationPopup
 import WordPopup from '../components/WordPopup';
 import ModernChapterRenderer from '../components/ModernChapterRenderer';
 import InteractiveText from '../components/InteractiveText';
-import { WordLookupService } from '../services/wordLookup';
 import SQLiteDictionaryService from '../services/sqliteDictionaryService';
 import { ttsService } from '../services/ttsService';
 import { useTheme } from '../hooks/useTheme';

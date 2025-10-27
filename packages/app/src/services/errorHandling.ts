@@ -241,8 +241,30 @@ export class Validator {
    * Validate and sanitize file path
    */
   static sanitizeFilePath(path: string): string {
+    if (!path || typeof path !== 'string') {
+      throw new Error('Invalid path: must be a non-empty string');
+    }
+    
     // Remove any path traversal attempts
-    return path.replace(/\.\./g, '').replace(/[^\w\-_\.\/]/g, '');
+    let sanitized = path.replace(/\.\./g, '').replace(/\/+/g, '/');
+    
+    // Remove leading/trailing whitespace
+    sanitized = sanitized.trim();
+    
+    // Ensure path doesn't start with / (relative paths only)
+    sanitized = sanitized.replace(/^\/+/, '');
+    
+    // Validate characters (allow letters, numbers, hyphens, underscores, dots, slashes)
+    if (!/^[\w\-_\.\/]+$/.test(sanitized)) {
+      throw new Error('Invalid path: contains illegal characters');
+    }
+    
+    // Additional security: ensure no double dots remain
+    if (sanitized.includes('..')) {
+      throw new Error('Invalid path: path traversal not allowed');
+    }
+    
+    return sanitized;
   }
 
   /**

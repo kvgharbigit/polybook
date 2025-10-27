@@ -1,4 +1,5 @@
-import { WordLookupService, WordDefinition } from '../../services/wordLookup';
+import { WordLookupService } from '../../services/wordLookup';
+import { WordDefinition } from '../../components/TranslationPopup';
 
 describe('WordLookupService', () => {
   describe('lookupWord', () => {
