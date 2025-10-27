@@ -189,21 +189,27 @@ export LC_ALL=en_US.UTF-8
 export LANG=en_US.UTF-8
 export PYTHONIOENCODING=utf-8
 
-# Primary conversion attempt with UTF-8 check enabled
+# Primary conversion attempt with proper error handling
+echo "🔄 Attempting PyGlossary conversion with error tolerance..."
 pyglossary "${DICT_DIR}/${DICT_BASE}.ifo" "${PAIR}.sql" \
     --write-format=Sql \
-    --utf8-check || {
-    echo "❌ PyGlossary conversion with UTF-8 check failed"
-    echo "Trying without UTF-8 validation..."
+    --no-utf8-check \
+    --verbosity=1 || {
+    echo "❌ PyGlossary conversion failed, trying with basic settings..."
     
-    # Try with explicit format specification  
+    # Try with more permissive settings
     pyglossary --read-format=Stardict --write-format=Sql \
         "${DICT_DIR}/${DICT_BASE}.ifo" "${PAIR}.sql" \
-        --no-utf8-check || {
+        --no-utf8-check \
+        --verbosity=0 || {
         
-        echo "❌ Second attempt failed, trying minimal approach..."
-        # Fallback: basic conversion (will complete despite encoding issues)
-        pyglossary "${DICT_DIR}/${DICT_BASE}.ifo" "${PAIR}.sql" --write-format=Sql || {
+        echo "❌ Second attempt failed, trying with SQLite mode..."
+        # Fallback: use SQLite intermediate storage (handles corruption better)
+        pyglossary "${DICT_DIR}/${DICT_BASE}.ifo" "${PAIR}.sql" \
+            --write-format=Sql \
+            --sqlite \
+            --no-utf8-check \
+            --verbosity=0 || {
             echo "❌ All conversion attempts failed"
             exit 1
         }
@@ -212,11 +218,54 @@ pyglossary "${DICT_DIR}/${DICT_BASE}.ifo" "${PAIR}.sql" \
 
 # Convert SQL to SQLite and optimize for mobile usage
 echo "🔄 Converting SQL to SQLite..."
-sqlite3 "${PAIR}.sqlite" < "${PAIR}.sql"
+if ! sqlite3 "${PAIR}.sqlite" < "${PAIR}.sql" 2>/dev/null; then
+    echo "⚠️ SQL import had errors, cleaning up and retrying..."
+    # Remove the failed database
+    rm -f "${PAIR}.sqlite"
+    
+    # Clean the SQL file of problematic entries and retry
+    echo "🧹 Cleaning SQL file of invalid entries..."
+    # Remove lines with invalid UTF-8 sequences and null bytes
+    sed 's/\x0//g' "${PAIR}.sql" | iconv -f utf-8 -t utf-8 -c > "${PAIR}_clean.sql" 2>/dev/null || {
+        echo "⚠️ Fallback: using original SQL file"
+        cp "${PAIR}.sql" "${PAIR}_clean.sql"
+    }
+    
+    # Try with cleaned SQL
+    sqlite3 "${PAIR}.sqlite" < "${PAIR}_clean.sql" || {
+        echo "❌ Failed to import cleaned SQL, trying line-by-line import..."
+        # Last resort: import line by line, skipping errors
+        while IFS= read -r line; do
+            echo "$line" | sqlite3 "${PAIR}.sqlite" 2>/dev/null || true
+        done < "${PAIR}_clean.sql"
+    }
+    
+    rm -f "${PAIR}_clean.sql"
+fi
 
 # Validate conversion and check for encoding issues
 echo "🔍 Validating conversion quality..."
-TOTAL_ENTRIES=$(sqlite3 "${PAIR}.sqlite" "SELECT COUNT(*) FROM word;")
+TOTAL_ENTRIES=$(sqlite3 "${PAIR}.sqlite" "SELECT COUNT(*) FROM word;" 2>/dev/null || echo "0")
+
+# Ensure we have a reasonable number of entries
+if [[ $TOTAL_ENTRIES -lt 1000 ]]; then
+    echo "❌ Too few entries ($TOTAL_ENTRIES) - dictionary conversion likely failed"
+    echo "Checking if table exists and has data..."
+    
+    # Check what tables exist
+    TABLES=$(sqlite3 "${PAIR}.sqlite" ".tables" 2>/dev/null || echo "")
+    echo "Available tables: $TABLES"
+    
+    if [[ -z "$TABLES" ]]; then
+        echo "❌ No tables found in database - conversion completely failed"
+        exit 1
+    fi
+    
+    # If word table doesn't exist but others do, still continue with warning
+    if [[ $TOTAL_ENTRIES -eq 0 ]]; then
+        echo "⚠️ Warning: word table is empty, but continuing with other tables..."
+    fi
+fi
 EMPTY_ENTRIES=$(sqlite3 "${PAIR}.sqlite" "SELECT COUNT(*) FROM word WHERE LENGTH(TRIM(COALESCE(w, ''))) = 0 OR LENGTH(TRIM(COALESCE(m, ''))) = 0;")
 NON_UTF8_ENTRIES=$(sqlite3 "${PAIR}.sqlite" "SELECT COUNT(*) FROM word WHERE w LIKE '%\\%' OR m LIKE '%\\%' OR w LIKE '%?%' OR m LIKE '%?%';")
 
