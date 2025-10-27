@@ -39,12 +39,21 @@ npm run dev
 - **Translation testing**: Comprehensive testing interface for dictionary services
 - **Rich translation UI**: Animated popups with definitions, examples, and context
 
-### Multilingual Support (Implemented)
-- **English ↔ Spanish**: Full bidirectional dictionary support
-- **English ↔ French**: Complete dictionary integration
-- **English ↔ German**: StarDict-based translation
-- **Extensible architecture**: Easy addition of new language pairs
-- **ML Kit integration**: Placeholder for neural translation (ready for implementation)
+### Multilingual Support (12 Languages)
+- **🇬🇧🇪🇸 English ↔ Spanish**: Production-ready Wiktionary dictionaries (93K+ entries)
+- **🇬🇧🇨🇳 English ↔ Mandarin**: Full bidirectional Wiktionary support (4.6MB)
+- **🇬🇧🇫🇷 English ↔ French**: Complete Wiktionary integration (3.2MB)
+- **🇬🇧🇩🇪 English ↔ German**: Wiktionary StarDict-based (6.9MB)
+- **🇬🇧🇮🇹 English ↔ Italian**: Wiktionary dictionaries (5.3MB)
+- **🇬🇧🇵🇹 English ↔ Portuguese**: Wiktionary integration (2.6MB)
+- **🇬🇧🇷🇺 English ↔ Russian**: Wiktionary support (4.2MB)
+- **🇬🇧🇯🇵 English ↔ Japanese**: Wiktionary dictionaries (5.9MB)
+- **🇬🇧🇰🇷 English ↔ Korean**: Wiktionary dictionaries (2.1MB)
+- **🇬🇧🇸🇦 English ↔ Arabic**: Wiktionary integration (2.9MB)
+- **🇬🇧🇮🇳 English ↔ Hindi**: Wiktionary support (1.0MB)
+- **Robust Build System**: Handles dictionary corruption gracefully with 93K+ entry recovery
+- **Automated CI/CD**: GitHub Actions builds all dictionaries with comprehensive error handling
+- **Mobile-optimized**: All dictionaries 1-7MB compressed for offline use
 
 ### Future Features
 - **Bergamot translation**: Offline neural machine translation
@@ -102,33 +111,46 @@ npm run dev
 - **E2E encryption**: Sync data encrypted client-side
 - **DRM-free only**: Clear stance on supported book formats
 
-## 📊 Development Roadmap
+## 📊 Development Status
 
-### Phase 1: MVP Foundation (6 weeks)
-- Basic reading functionality
-- Spanish ↔ English dictionary and translation
-- Local storage and vocabulary library
-- System TTS integration
+### ✅ Phase 1: MVP Foundation (COMPLETED)
+- ✅ Advanced reading functionality (PDF, TXT, HTML)
+- ✅ Spanish ↔ English dictionary with 93K+ entries (corruption-resistant)
+- ✅ Mandarin ↔ English dictionary system (4.6MB optimized)  
+- ✅ 12-language multilingual dictionary system
+- ✅ Local storage and vocabulary management
+- ✅ Robust GitHub Actions CI/CD pipeline with error handling
 
-### Phase 2: Monetization (4 weeks)
+### 🔄 Phase 2: Production Polish (IN PROGRESS)
+- ✅ Language pack download system implemented
+- ✅ Performance optimization completed
+- 🔄 Final testing and bug fixes
+- 📋 App store preparation
+
+### 📋 Phase 3: Deployment & Scale (PLANNED)
 - User authentication and subscriptions
-- Language pack download system
-- Performance optimization
-- App store preparation
-
-### Phase 3: Scale & Sync (6 weeks)
-- Cross-device synchronization
-- Additional language pairs
+- Cross-device synchronization  
 - Advanced features and analytics
-- Production scaling
+- Production scaling and monitoring
 
 ## 🛠 Development Setup
 
-*Coming soon - will include setup instructions for:*
-- Development environment
-- Language pack building
-- Local testing
-- Contributing guidelines
+### Prerequisites
+```bash
+# Node.js 18+ and npm
+npm install -g expo-cli
+
+# Clone and install
+git clone https://github.com/kvgharbigit/polybook.git
+cd polybook
+npm install
+```
+
+### Dictionary System
+- **Source**: Wiktionary dictionaries via [Vuizur/Wiktionary-Dictionaries](https://github.com/Vuizur/Wiktionary-Dictionaries)
+- **Build**: GitHub Actions automatically builds all 10 language pairs
+- **Format**: StarDict → SQLite conversion for mobile optimization
+- **Storage**: Downloadable language packs (1-7MB each)
 
 ## 📄 License
 
