@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -33,7 +33,11 @@
       "expo-sqlite",
       "expo-document-picker",
       "expo-file-system",
-      "expo-dev-client"
+      "expo-dev-client",
+      ["./plugins/with-mlkit-translate", {}]
+    ],
+    "assetBundlePatterns": [
+      "assets/**/*"
     ],
     "scheme": "polybook",
     "experiments": {

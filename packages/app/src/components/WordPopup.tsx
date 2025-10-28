@@ -14,8 +14,9 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { BilingualWordDefinition, DictionaryLookupResponse } from '@polybook/shared/src/types';
 import SQLiteDictionaryService from '../services/sqliteDictionaryService';
-import { Translation } from '../services';
+import { Translation, MlkitUtils } from '../services';
 import { getDictionaryUrls, getLanguageName as getLangName } from '../utils/dictionaries';
+import { getServiceInfo } from '../services';
 
 interface WordPopupProps {
   word: string;
@@ -277,7 +278,11 @@ export const WordPopup: React.FC<WordPopupProps> = ({
       const sourceLanguage = userProfile.targetLanguages[0] || 'en';
       const targetLanguage = userProfile.nativeLanguage;
       
-      console.log(`🎯 WordPopup: Using WikiDict for word translation, ML for sentence`);
+      // Debug: Show which translation service is active
+      const serviceInfo = getServiceInfo();
+      console.log(`🔧 Translation Service: ${serviceInfo.engine} (${serviceInfo.description})`);
+      
+      console.log(`🎯 WordPopup: Using WikiDict for word translation, ${serviceInfo.engine} for sentence`);
       
       // 1. Try WikiDict first for single word (structured data with parts of speech)
       let wordLookupSuccess = false;
@@ -440,11 +445,30 @@ export const WordPopup: React.FC<WordPopupProps> = ({
         }
       } catch (wikiError) {
         console.log(`🎯 WordPopup: WikiDict lookup failed, falling back to ML translation:`, wikiError.message);
+        
+        // Check if this is a missing language pack error
+        if (wikiError.message && wikiError.message.includes('Dictionary not available')) {
+          console.log(`🎯 WordPopup: Detected missing language pack error`);
+          // Don't continue to ML translation for missing language packs
+          // Instead, set the lookup result with missing languages info
+          setLookupResult({
+            success: false,
+            word,
+            sourceLanguage: 'en',
+            error: wikiError.message,
+            missingLanguages: ['en'], // Since it's missing English dictionary
+          });
+          setLoading(false);
+          return; // Exit early, don't try ML translation
+        }
       }
       
       // 2. Fallback to ML translation if WikiDict failed
       if (!wordLookupSuccess) {
         console.log(`🎯 WordPopup: Using ML translation as fallback`);
+        console.log(`🎯 WordPopup: Translation service info:`, getServiceInfo());
+        console.log(`🎯 WordPopup: About to call Translation.translate with word: "${word.trim()}", from: ${sourceLanguage}, to: ${targetLanguage}`);
+        
         const mlResult = await Translation.translate(word.trim(), {
           from: sourceLanguage,
           to: targetLanguage,
@@ -531,11 +555,32 @@ export const WordPopup: React.FC<WordPopupProps> = ({
       }
     } catch (error) {
       console.error('🎯 WordPopup: ❌ Translation failed:', error);
+      
+      // Check if this is an MLKit-specific error
+      let errorMessage = 'Translation failed';
+      let needsMLKitSetup = false;
+      let missingMLKitLanguages: string[] = [];
+      
+      if (error.message) {
+        if (error.message.includes('ML Kit native module not available')) {
+          errorMessage = 'ML Kit translation not available - using Dev Client build required';
+          needsMLKitSetup = true;
+        } else if (error.message.includes('model not found') || error.message.includes('model not installed')) {
+          errorMessage = `Translation models needed for ${sourceLanguage} → ${targetLanguage}`;
+          needsMLKitSetup = true;
+          missingMLKitLanguages = [sourceLanguage, targetLanguage];
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       setLookupResult({
         success: false,
         word,
-        sourceLanguage: 'unknown',
-        error: 'Translation failed',
+        sourceLanguage: sourceLanguage || 'unknown',
+        error: errorMessage,
+        missingLanguages: needsMLKitSetup ? missingMLKitLanguages : undefined,
+        needsMLKitSetup,
       });
     } finally {
       // Only set loading to false if no word translation was found
@@ -599,6 +644,18 @@ export const WordPopup: React.FC<WordPopupProps> = ({
       general: '📝'
     };
     return icons[partOfSpeech.toLowerCase()] || icons.general;
+  };
+
+  const getLanguageName = (langCode: string) => {
+    const languages: Record<string, string> = {
+      'en': 'English',
+      'es': 'Spanish',
+      'fr': 'French',
+      'de': 'German',
+      'it': 'Italian',
+      'pt': 'Portuguese'
+    };
+    return languages[langCode] || langCode;
   };
 
   const handleTranslateSentence = async () => {
@@ -702,9 +759,10 @@ export const WordPopup: React.FC<WordPopupProps> = ({
             {lookupResult?.error || `Could not find definition for "${word}"`}
           </Text>
           
-          {lookupResult?.missingLanguages && lookupResult.missingLanguages.length > 0 && (
+          {/* Dictionary Language Packs */}
+          {lookupResult?.missingLanguages && lookupResult.missingLanguages.length > 0 && !lookupResult.needsMLKitSetup && (
             <View style={styles.missingLanguagesContainer}>
-              <Text style={styles.missingLanguagesTitle}>Missing language packs:</Text>
+              <Text style={styles.missingLanguagesTitle}>Missing dictionary packs:</Text>
               {lookupResult.missingLanguages.map((lang) => (
                 <Text key={lang} style={styles.missingLanguage}>
                   • {getLanguageName(lang)}
@@ -723,7 +781,52 @@ export const WordPopup: React.FC<WordPopupProps> = ({
                   }}
                 >
                   <Ionicons name="download-outline" size={20} color="#FFFFFF" />
-                  <Text style={styles.downloadButtonText}>Download Language Packs</Text>
+                  <Text style={styles.downloadButtonText}>Download Dictionary Packs</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {/* MLKit Translation Setup */}
+          {lookupResult?.needsMLKitSetup && (
+            <View style={styles.missingLanguagesContainer}>
+              <Text style={styles.missingLanguagesTitle}>Translation Setup Needed:</Text>
+              <Text style={styles.missingLanguage}>
+                • ML Kit translation models
+              </Text>
+              {lookupResult.missingLanguages && lookupResult.missingLanguages.length > 0 && (
+                <Text style={styles.missingLanguage}>
+                  • Languages: {lookupResult.missingLanguages.map(getLanguageName).join(', ')}
+                </Text>
+              )}
+              <Text style={styles.missingLanguagesHint}>
+                {MlkitUtils.isAvailable() 
+                  ? 'Download translation models for offline translation'
+                  : 'Ensure you are using a Dev Client or production build for ML Kit translation'
+                }
+              </Text>
+              
+              {MlkitUtils.isAvailable() && (
+                <TouchableOpacity 
+                  style={styles.downloadButton}
+                  onPress={async () => {
+                    console.log('🤖 MLKit: User requested model download');
+                    // TODO: Implement model download flow
+                    // For now, just log the attempt
+                    try {
+                      if (lookupResult.missingLanguages) {
+                        for (const lang of lookupResult.missingLanguages) {
+                          console.log(`🤖 MLKit: Attempting to ensure model for ${lang}`);
+                          await MlkitUtils.getInstalledModels(); // Check current models first
+                        }
+                      }
+                    } catch (error) {
+                      console.error('🤖 MLKit: Model setup failed:', error);
+                    }
+                  }}
+                >
+                  <Ionicons name="download-outline" size={20} color="#FFFFFF" />
+                  <Text style={styles.downloadButtonText}>Setup Translation Models</Text>
                 </TouchableOpacity>
               )}
             </View>

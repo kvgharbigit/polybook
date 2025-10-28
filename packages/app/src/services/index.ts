@@ -3,9 +3,18 @@ import { OnlineService } from './online';
 import { MlkitService } from './mlkit';
 import { TranslationService } from './types';
 
-// One-liner engine switch
+// Enhanced diagnostics for service selection
+console.log('🔧 Translation Service: Diagnostics starting...');
+console.log('🔧 Translation Service: Constants.appOwnership:', Constants.appOwnership);
+console.log('🔧 Translation Service: Constants.executionEnvironment:', Constants.executionEnvironment);
+console.log('🔧 Translation Service: Constants.platform:', Constants.platform);
+
 const isExpoGo = Constants.appOwnership === 'expo';
+console.log('🔧 Translation Service: isExpoGo:', isExpoGo);
+
 export const Translation: TranslationService = isExpoGo ? OnlineService : MlkitService;
+
+console.log('🔧 Translation Service: Selected service:', isExpoGo ? 'OnlineService' : 'MlkitService');
 
 // Re-export types for convenience
 export type { TranslationService, TranslateOpts, TranslationResult } from './types';

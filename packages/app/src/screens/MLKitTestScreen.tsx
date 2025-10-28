@@ -1,7 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Translation, MlkitUtils } from '../services';
+import { Translation, MlkitUtils, getServiceInfo } from '../services';
+
+// Language pair definitions for better UX
+interface LanguagePair {
+  id: string;
+  sourceLanguage: string;
+  targetLanguage: string;
+  label: string;
+  estimatedMB: number;
+}
+
+const LANGUAGE_PAIRS: LanguagePair[] = [
+  { id: 'en-es', sourceLanguage: 'en', targetLanguage: 'es', label: 'English ↔ Spanish', estimatedMB: 45 },
+  { id: 'en-fr', sourceLanguage: 'en', targetLanguage: 'fr', label: 'English ↔ French', estimatedMB: 48 },
+  { id: 'en-de', sourceLanguage: 'en', targetLanguage: 'de', label: 'English ↔ German', estimatedMB: 47 },
+  { id: 'en-it', sourceLanguage: 'en', targetLanguage: 'it', label: 'English ↔ Italian', estimatedMB: 44 },
+  { id: 'fr-es', sourceLanguage: 'fr', targetLanguage: 'es', label: 'French ↔ Spanish', estimatedMB: 52 },
+  { id: 'de-es', sourceLanguage: 'de', targetLanguage: 'es', label: 'German ↔ Spanish', estimatedMB: 50 },
+];
 
 interface TestResult {
   id: string;
@@ -32,6 +50,7 @@ export default function MLKitTestScreen() {
   const [isRunning, setIsRunning] = useState(false);
   const [mlkitStatus, setMlkitStatus] = useState<string>('checking...');
   const [installedModels, setInstalledModels] = useState<string[]>([]);
+  const [pairStatuses, setPairStatuses] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     checkMLKitStatus();
@@ -39,14 +58,29 @@ export default function MLKitTestScreen() {
 
   const checkMLKitStatus = async () => {
     try {
+      const serviceInfo = getServiceInfo();
+      console.log(`🔧 Translation Service: ${serviceInfo.engine} (${serviceInfo.description})`);
+      
       const isAvailable = MlkitUtils.isAvailable();
       
       if (isAvailable) {
-        setMlkitStatus('✅ ML Kit Available');
+        setMlkitStatus(`✅ ML Kit Available - Using ${serviceInfo.engine} engine`);
         const models = await MlkitUtils.getInstalledModels();
         setInstalledModels(models);
+        
+        // Check status for each language pair
+        const statuses: Record<string, boolean> = {};
+        for (const pair of LANGUAGE_PAIRS) {
+          try {
+            const isReady = await MlkitUtils.isLanguagePairReady(pair.sourceLanguage, pair.targetLanguage);
+            statuses[pair.id] = isReady;
+          } catch (error) {
+            statuses[pair.id] = false;
+          }
+        }
+        setPairStatuses(statuses);
       } else {
-        setMlkitStatus('❌ ML Kit Not Available (Use Dev Client)');
+        setMlkitStatus(`❌ ML Kit Not Available - Currently using ${serviceInfo.engine} engine (Use Dev Client for ML Kit)`);
       }
     } catch (error) {
       setMlkitStatus(`❌ Error: ${error.message}`);
@@ -66,7 +100,8 @@ export default function MLKitTestScreen() {
     const startTime = Date.now();
     
     try {
-      console.log(`🧪 Testing: "${phrase.text}" (${phrase.from} → ${phrase.to})`);
+      const serviceInfo = getServiceInfo();
+      console.log(`🧪 Testing: "${phrase.text}" (${phrase.from} → ${phrase.to}) using ${serviceInfo.engine}`);
       
       const result = await Translation.translate(phrase.text, {
         from: phrase.from,
@@ -138,18 +173,27 @@ export default function MLKitTestScreen() {
     }
   };
 
-  const downloadModel = async (language: string) => {
+  const downloadLanguagePair = async (pair: LanguagePair) => {
     try {
-      console.log(`📥 Downloading ${language} model...`);
-      await Translation.ensureModel(language);
-      console.log(`✅ ${language} model ready`);
+      console.log(`📥 Downloading language pair: ${pair.label}...`);
       
-      // Refresh installed models
+      const result = await MlkitUtils.ensureLanguagePair(pair.sourceLanguage, pair.targetLanguage);
+      
+      let message = `${pair.label} is ready for translation!`;
+      if (result.newlyDownloaded.length > 0) {
+        message = `Downloaded ${result.newlyDownloaded.join(', ')} models. ${pair.label} is now ready!`;
+      } else {
+        message = `${pair.label} was already available.`;
+      }
+      
+      console.log(`✅ ${pair.label} ready`);
+      
+      // Refresh status
       await checkMLKitStatus();
-      Alert.alert('Success', `${language} model downloaded successfully`);
+      Alert.alert('Success', message);
     } catch (error) {
-      console.error(`Failed to download ${language} model:`, error);
-      Alert.alert('Download Failed', error.message);
+      console.error(`Failed to download language pair ${pair.label}:`, error);
+      Alert.alert('Download Failed', `Failed to download ${pair.label}: ${error.message}`);
     }
   };
 
@@ -212,24 +256,32 @@ export default function MLKitTestScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.modelControls}>
-        <Text style={styles.sectionTitle}>Download Models:</Text>
-        <View style={styles.modelButtons}>
-          {['es', 'fr', 'de', 'it'].map(lang => (
-            <TouchableOpacity
-              key={lang}
-              style={[
-                styles.modelButton,
-                installedModels.includes(lang) && styles.installedModel
-              ]}
-              onPress={() => downloadModel(lang)}
-            >
-              <Text style={styles.modelButtonText}>
-                {lang.toUpperCase()} {installedModels.includes(lang) ? '✅' : '📥'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+      <View style={styles.languagePairControls}>
+        <Text style={styles.sectionTitle}>Download Translation Pairs:</Text>
+        <ScrollView style={styles.pairsList} showsVerticalScrollIndicator={false}>
+          {LANGUAGE_PAIRS.map(pair => {
+            const isReady = pairStatuses[pair.id] || false;
+            return (
+              <TouchableOpacity
+                key={pair.id}
+                style={[
+                  styles.pairButton,
+                  isReady && styles.readyPair
+                ]}
+                onPress={() => downloadLanguagePair(pair)}
+              >
+                <View style={styles.pairInfo}>
+                  <Text style={styles.pairLabel}>
+                    {pair.label} {isReady ? '✅' : '📥'}
+                  </Text>
+                  <Text style={styles.pairSize}>
+                    ~{pair.estimatedMB}MB {isReady ? '• Ready' : '• Download needed'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {results.length > 0 && (
@@ -309,37 +361,45 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
   },
-  modelControls: {
+  languagePairControls: {
     backgroundColor: 'white',
     padding: 16,
     borderRadius: 8,
     marginBottom: 16,
+    maxHeight: 200,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 12,
   },
-  modelButtons: {
-    flexDirection: 'row',
-    gap: 8,
+  pairsList: {
+    flex: 1,
   },
-  modelButton: {
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
+  pairButton: {
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    marginBottom: 8,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#e9ecef',
   },
-  installedModel: {
+  readyPair: {
     backgroundColor: '#e8f5e8',
     borderColor: '#4CAF50',
   },
-  modelButtonText: {
-    fontSize: 12,
+  pairInfo: {
+    flex: 1,
+  },
+  pairLabel: {
+    fontSize: 14,
     fontWeight: '600',
     color: '#333',
+    marginBottom: 4,
+  },
+  pairSize: {
+    fontSize: 12,
+    color: '#666',
   },
   statsSection: {
     backgroundColor: 'white',

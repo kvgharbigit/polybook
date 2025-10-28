@@ -3,10 +3,12 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '../navigation/SimpleNavigator';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useAppStore } from '../store/appStore';
 import { useTheme } from '../hooks/useTheme';
 import { extractEPUBMetadata } from '../services/epubMetadataExtractor';
+import LanguageDetectionService from '../services/languageDetection';
+import { ContentParser } from '../services/contentParser';
 
 export default function HomeScreen() {
   const { navigate } = useNavigation();
@@ -101,6 +103,30 @@ export default function HomeScreen() {
           }
         }
         
+        // Auto-detect language from content if not already set
+        if (!bookMetadata.language || bookMetadata.language === 'en') {
+          try {
+            console.log('🔍 HomeScreen: Auto-detecting language...');
+            const parser = new ContentParser();
+            const parsedContent = await parser.parseFile(newFilePath, format);
+            
+            if (parsedContent?.content) {
+              const detectionResult = await LanguageDetectionService.detectBookLanguage(
+                parsedContent.content,
+                bookMetadata,
+                'en' // Default user native language
+              );
+              
+              console.log('🔍 HomeScreen: Language detection result:', detectionResult);
+              bookMetadata.language = detectionResult.detectedLanguage;
+            }
+          } catch (error) {
+            console.warn('🔍 HomeScreen: Language detection failed, using metadata/default:', error);
+          }
+        } else {
+          console.log('🔍 HomeScreen: Using existing language from metadata:', bookMetadata.language);
+        }
+        
         const bookData = {
           title: bookMetadata.title,
           author: bookMetadata.author,
@@ -111,12 +137,14 @@ export default function HomeScreen() {
           addedAt: new Date(),
           lastOpenedAt: new Date(),
         };
+        
+        console.log('📚 HomeScreen: Final book data:', bookData);
 
         const bookId = await useAppStore.getState().addBook(bookData);
         
         Alert.alert(
           'Book Imported Successfully!', 
-          `"${bookMetadata.title}" has been added to your library.`,
+          `"${bookMetadata.title}" has been added to your library.\n\nLanguage: ${bookMetadata.language.toUpperCase()}`,
           [
             { text: 'View Library', onPress: () => navigate('Library') },
             { text: 'Import Another', style: 'cancel' },

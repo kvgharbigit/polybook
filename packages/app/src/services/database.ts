@@ -133,6 +133,8 @@ class DatabaseService {
       // Column already exists, ignore error
       console.log('Database: Chapters column already exists or migration failed');
     }
+    
+    // Note: language field already exists in books table schema
   }
 
   // Book operations
@@ -242,6 +244,15 @@ class DatabaseService {
     );
   }
 
+  async updateBookLanguage(id: string, language: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    await this.db.runAsync(
+      'UPDATE books SET language = ? WHERE id = ?',
+      [language, id],
+    );
+  }
+
   async deleteBook(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
@@ -256,7 +267,7 @@ class DatabaseService {
 
     // Clean up the book file from the file system
     try {
-      const FileSystem = require('expo-file-system');
+      const FileSystem = require('expo-file-system/legacy');
       const fileInfo = await FileSystem.getInfoAsync(book.filePath);
       if (fileInfo.exists) {
         await FileSystem.deleteAsync(book.filePath);
@@ -508,7 +519,7 @@ class DatabaseService {
 
     // Clean up all book files from the file system
     try {
-      const FileSystem = require('expo-file-system');
+      const FileSystem = require('expo-file-system/legacy');
       
       for (const book of books) {
         // Delete book file

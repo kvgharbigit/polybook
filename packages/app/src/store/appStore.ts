@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Book, VocabularyCard, Position, UserSettings, ReadingMode } from '@polybook/shared';
 import { db } from '../services/databaseInterface';
+import { preloadSampleBooks } from '../utils/sampleBooks';
 
 interface AppState {
   // Library state
@@ -79,6 +80,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
   loadBooks: async () => {
     set({ isLoading: true });
     try {
+      // Check if database is initialized before trying to load books
+      if (!db || !(db as any).db) {
+        console.log('📚 Database not yet initialized, skipping book load');
+        set({ isLoading: false });
+        return;
+      }
+      
       const books = await db.getBooks();
       set({ books, isLoading: false });
     } catch (error) {
@@ -198,8 +206,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
   initialize: async () => {
     try {
       await db.initialize();
-      const { loadBooks } = get();
+      const { loadBooks, addBook } = get();
       await loadBooks();
+      
+      // Skip automatic preloading - users can manually import books
+      console.log('📚 App initialized - ready for manual book import');
+      
       console.log('App store initialized successfully');
     } catch (error) {
       console.error('Failed to initialize app store:', error);

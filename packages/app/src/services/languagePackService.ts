@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { unzipSync } from 'fflate';
 import { Buffer } from 'buffer';
 import { PERFORMANCE, PATHS } from '../constants/timeouts';

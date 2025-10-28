@@ -13,6 +13,7 @@ import UserLanguageProfileService from '../services/userLanguageProfileService';
 import LanguagePackManager from '../services/languagePackManager';
 import SQLiteDictionaryService from '../services/sqliteDictionaryService';
 import { getServiceInfo } from '../services';
+import { canUseMLKit, getBuildKind } from '../utils/buildEnv';
 
 interface LanguageOption {
   code: string;
@@ -102,9 +103,9 @@ export const LanguagePackSettings: React.FC<LanguagePackSettingsProps> = ({
       for (const lang of SUPPORTED_LANGUAGES) {
         const isDictionaryInstalled = installedLanguages.includes(lang.code);
         
-        // Check for ML Kit translation models (only in production builds)
+        // Check for ML Kit translation models (only in dev/production builds)
         let isTranslatorInstalled = false;
-        if (isMlkitAvailable) {
+        if (canUseMLKit()) {
           try {
             // Dynamic import to check ML Kit status
             const { MlkitUtils } = await import('../services/mlkit');
@@ -264,10 +265,10 @@ export const LanguagePackSettings: React.FC<LanguagePackSettingsProps> = ({
             
             try {
               // Import ML Kit utilities dynamically
-              const { MlkitUtils } = await import('../services/mlkit');
+              const { MlkitService } = await import('../services/mlkit');
               
               // Download the model
-              await MlkitUtils.ensureModel(languageCode);
+              await MlkitService.ensureModel(languageCode);
               
               // Update state
               setLanguagePacks(prev => ({
@@ -294,7 +295,12 @@ export const LanguagePackSettings: React.FC<LanguagePackSettingsProps> = ({
                 }
               }));
               
-              Alert.alert('Download Failed', 'Translation model download failed. This feature requires a production build with ML Kit support.');
+              const buildKind = getBuildKind();
+              const errorMessage = buildKind === 'expo-go' 
+                ? 'Translation model download failed. This feature is not available in Expo Go. Create a development build with "npx expo run:ios" to enable MLKit.'
+                : 'Translation model download failed. Make sure react-native-mlkit-translate-text is properly installed and rebuild the app.';
+              
+              Alert.alert('Download Failed', errorMessage);
             }
           }}
         ]

@@ -96,7 +96,7 @@ export default function LibraryScreen() {
             <Text style={styles.bookTitle}>{item.title}</Text>
             <Text style={styles.bookAuthor}>{item.author}</Text>
             <Text style={styles.bookLanguage}>
-              {item.language.toUpperCase()} → {item.targetLanguage.toUpperCase()} • {item.format.toUpperCase()}
+              {item.language.toUpperCase()} • {item.format.toUpperCase()}
             </Text>
             <View style={styles.progressContainer}>
               <View style={styles.progressBar}>

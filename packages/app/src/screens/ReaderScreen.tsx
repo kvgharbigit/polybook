@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useReducer, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Modal, FlatList, InteractionManager } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Modal, FlatList, InteractionManager, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '../navigation/SimpleNavigator';
 import { useAppStore } from '../store/appStore';
@@ -17,6 +17,90 @@ import { useFont } from '../hooks/useFont';
 import { useTTSHighlight } from '../hooks/useTTSHighlight';
 import { Chapter } from '../services/contentParser';
 import UserLanguageProfileService from '../services/userLanguageProfileService';
+import TranslationRequirementsService, { TranslationRequirements } from '../services/translationRequirements';
+import LanguageDetectionService from '../services/languageDetection';
+import { canUseMLKit, getBuildKind, getMLKitBlockReason } from '../utils/buildEnv';
+
+/**
+ * Check translation requirements and show appropriate prompts
+ */
+async function checkTranslationRequirements(book: any, bookContent: string, navigate: any) {
+  console.log('🔧 ReaderScreen: Checking translation requirements...');
+  
+  try {
+    // Get user language profile to determine native language
+    const userProfile = await UserLanguageProfileService.getUserProfile();
+    const userNativeLanguage = userProfile?.nativeLanguage || 'en';
+    
+    console.log('🔧 ReaderScreen: User native language:', userNativeLanguage);
+    console.log('🔧 ReaderScreen: Book language:', book.language);
+    
+    // Check if translation is needed (different languages)
+    if (book.language === userNativeLanguage) {
+      console.log('🔧 ReaderScreen: Same language as user native, no translation needed');
+      return;
+    }
+    
+    // Check translation requirements
+    const requirements = await TranslationRequirementsService.checkRequirements(
+      bookContent,
+      { language: book.language, title: book.title, author: book.author },
+      userNativeLanguage
+    );
+    
+    console.log('🔧 ReaderScreen: Translation requirements:', requirements);
+    
+    if (requirements.translationReady) {
+      console.log('🔧 ReaderScreen: ✅ Translation ready - all requirements met');
+      return;
+    }
+    
+    // Show alert for missing requirements with build-specific messaging
+    const summary = TranslationRequirementsService.getRequirementSummary(requirements);
+    const actionItems = requirements.requiredActions.map((action, index) => `${index + 1}. ${action}`).join('\n');
+    
+    // Add build-specific MLKit information
+    let buildInfo = '';
+    if (requirements.needsMLKit && !canUseMLKit()) {
+      const buildKind = getBuildKind();
+      if (buildKind === 'expo-go') {
+        buildInfo = '\n\n⚠️ Note: You are running Expo Go. To enable offline translation, create a development build with "npx expo run:ios".';
+      } else {
+        buildInfo = '\n\n⚠️ Note: MLKit native module not detected. Make sure react-native-mlkit-translate-text is installed and rebuild the app.';
+      }
+    }
+    
+    Alert.alert(
+      'Translation Setup Required',
+      `${summary}\n\nRequired actions:\n${actionItems}\n\nYou can still read the book, but translation features will be limited.${buildInfo}`,
+      [
+        { text: 'Continue Reading', style: 'cancel' },
+        { 
+          text: requirements.needsMLKit && !canUseMLKit() && getBuildKind() === 'expo-go' 
+            ? 'Learn About Dev Builds' 
+            : 'Download Language Packs', 
+          onPress: () => {
+            if (requirements.needsMLKit && !canUseMLKit() && getBuildKind() === 'expo-go') {
+              console.log('🔧 ReaderScreen: User wants to learn about dev builds');
+              // Could open documentation or show more info
+              Alert.alert(
+                'Development Builds',
+                'To use offline translation, you need to create a development build instead of using Expo Go.\n\nRun "npx expo run:ios" to create a development build with MLKit support.',
+                [{ text: 'OK' }]
+              );
+            } else {
+              console.log('🔧 ReaderScreen: User wants to download language packs');
+              navigate('Settings');
+            }
+          }
+        }
+      ]
+    );
+    
+  } catch (error) {
+    console.error('🔧 ReaderScreen: Translation requirements check failed:', error);
+  }
+}
 
 function ReaderScreen() {
   console.log('🔵 ReaderScreen: Component mounting/re-rendering');
@@ -248,9 +332,77 @@ function ReaderScreen() {
         return;
       }
 
-      console.log('📖 loadBookContent: Found book:', { title: book.title, format: book.format, filePath: book.filePath });
+      console.log('📖 loadBookContent: Found book:', { title: book.title, format: book.format, filePath: book.filePath, language: book.language });
       setBookTitle(`${book.title} (${book.format.toUpperCase()})`);
       setCurrentBook(book);
+
+      // Auto-detect language if not properly set
+      console.log('🔧 ReaderScreen: Checking if language detection needed. Book language:', book.language);
+      if (!book.language || book.language === 'en') {
+        console.log('🔍 ReaderScreen: Auto-detecting language for book:', book.title);
+        console.log('🔍 ReaderScreen: Current language:', book.language);
+        
+        try {
+          // Get book content for language detection
+          let contentForDetection = '';
+          let bookContent = await db.getBookContent(book.id);
+          
+          if (bookContent?.content) {
+            contentForDetection = bookContent.content;
+            console.log('🔍 ReaderScreen: Using cached content for detection');
+          } else {
+            console.log('🔍 ReaderScreen: Parsing file for language detection');
+            const parsed = await ContentParser.parseFile(book.filePath, book.format);
+            contentForDetection = parsed.content;
+          }
+          
+          if (contentForDetection) {
+            const detectionResult = await LanguageDetectionService.detectBookLanguage(
+              contentForDetection,
+              { language: book.language, title: book.title, author: book.author },
+              'en' // Default user native language
+            );
+            
+            console.log('🔍 ReaderScreen: Language detection result:', detectionResult);
+            
+            // Update book language if detection found something different
+            if (detectionResult.detectedLanguage !== book.language) {
+              console.log(`🔍 ReaderScreen: Updating book language from ${book.language} to ${detectionResult.detectedLanguage}`);
+              await db.updateBookLanguage(book.id, detectionResult.detectedLanguage);
+              
+              // Update local book object and reload books in store
+              book.language = detectionResult.detectedLanguage;
+              await useAppStore.getState().loadBooks();
+            } else {
+              console.log('🔍 ReaderScreen: Detected language matches current language, no update needed');
+            }
+            
+            // Check translation requirements after language detection
+            await checkTranslationRequirements(book, contentForDetection, navigate);
+          }
+        } catch (error) {
+          console.error('🔍 ReaderScreen: Language detection failed:', error);
+        }
+      } else {
+        console.log('🔍 ReaderScreen: Book already has good language set:', book.language);
+        
+        // Still check translation requirements for books with existing language
+        try {
+          let contentForRequirements = '';
+          let bookContent = await db.getBookContent(book.id);
+          
+          if (bookContent?.content) {
+            contentForRequirements = bookContent.content;
+          } else {
+            const parsed = await ContentParser.parseFile(book.filePath, book.format);
+            contentForRequirements = parsed.content;
+          }
+          
+          await checkTranslationRequirements(book, contentForRequirements, navigate);
+        } catch (error) {
+          console.error('🔍 ReaderScreen: Translation requirements check failed:', error);
+        }
+      }
 
       // Check if content is already cached and compatible
       console.log('📖 loadBookContent: Checking for cached content');
