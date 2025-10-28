@@ -107,54 +107,54 @@ export interface LanguagePackStats {
 export const AVAILABLE_LANGUAGE_PACKS: LanguagePackManifest[] = [
   {
     id: 'es-en',
-    name: 'Spanish ↔ English',
-    version: '23.0.0',
+    name: 'Spanish ↔ English (WikiDict)',
+    version: '2025.1.0',
     sourceLanguage: 'es',
     targetLanguage: 'en',
-    totalSize: 9200000, // 9.2MB (4.6MB + 4.6MB for both directions)
-    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/download/packs-23/spa-eng.sqlite.zip',
-    checksum: 'spa_eng_checksum_v23',
+    totalSize: 11321344, // 10.7MB WikiDict Spanish-English
+    downloadUrl: 'https://download.wikdict.com/dictionaries/sqlite/2/es-en.sqlite3',
+    checksum: 'wikdict_es_en_2025',
     dictionary: {
-      filename: 'spa-eng.sqlite',
-      size: 9200000, // 9.2MB (combined UI display)
-      checksum: 'spa_eng_dict_checksum_v23',
-      entries: 86000, // 86K+ entries (43K + 43K)
-      source: 'wiktionary'
+      filename: 'es-en.sqlite3',
+      size: 11321344, // 10.7MB
+      checksum: 'wikdict_es_en_dict_2025',
+      entries: 62000, // Estimated from WikiDict
+      source: 'wikdict'
     },
     mlKitSupport: {
       sourceToTarget: true,  // Spanish to English supported
       targetToSource: true,  // English to Spanish supported (via companion pack)
       downloadSize: 45 * 1024 * 1024, // ~45MB
     },
-    description: 'Complete bidirectional Spanish-English pack (9.2MB). Downloads both Spanish→English and English→Spanish dictionaries for full translation support.',
-    releaseDate: '2024-10-27T00:00:00Z',
+    description: 'Complete bidirectional Spanish-English pack (31.6MB total). Downloads both Spanish→English and English→Spanish WikiDict databases for superior translation support.',
+    releaseDate: '2025-01-27T00:00:00Z',
     minAppVersion: '1.0.0',
     companionPackId: 'en-es' // Frontend will auto-download this pack too
   },
   
   {
     id: 'en-es',
-    name: 'English → Spanish (Companion)',
-    version: '23.0.0',
+    name: 'English → Spanish (WikiDict)',
+    version: '2025.1.0',
     sourceLanguage: 'en',
     targetLanguage: 'es',
-    totalSize: 4600000, // 4.6MB from v23 release
-    downloadUrl: 'https://github.com/kvgharbigit/polybook/releases/download/packs-23/eng-spa.sqlite.zip',
-    checksum: 'eng_spa_checksum_v23',
+    totalSize: 20971520, // 20MB WikiDict database
+    downloadUrl: 'https://download.wikdict.com/dictionaries/sqlite/2/en-es.sqlite3',
+    checksum: 'wikdict_en_es_2025',
     dictionary: {
-      filename: 'eng-spa.sqlite',
-      size: 4600000, // 4.6MB
-      checksum: 'eng_spa_dict_checksum_v23',
-      entries: 43000, // 43K+ entries from v23
-      source: 'wiktionary'
+      filename: 'en-es.sqlite3',
+      size: 20971520, // 20MB
+      checksum: 'wikdict_en_es_dict_2025',
+      entries: 85000, // Estimated from WikiDict
+      source: 'wikdict'
     },
     mlKitSupport: {
       sourceToTarget: true,  // English to Spanish supported
       targetToSource: false, // This is the companion pack
       downloadSize: 45 * 1024 * 1024, // ~45MB
     },
-    description: 'Companion pack for Spanish-English. Contains English→Spanish dictionary entries.',
-    releaseDate: '2024-10-27T00:00:00Z',
+    description: 'WikiDict English→Spanish translations for native Spanish speakers learning English.',
+    releaseDate: '2025-01-27T00:00:00Z',
     minAppVersion: '1.0.0',
     hidden: true // Don't show in UI - auto-downloaded as companion
   },

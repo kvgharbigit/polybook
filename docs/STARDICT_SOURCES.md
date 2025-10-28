@@ -89,3 +89,47 @@ https://github.com/kayvangharbi/PolyBook/releases/download/packs/
 All URLs tested and working as of 2025-10-27. FreeDict provides stable, versioned downloads with consistent naming patterns.
 
 **Quality:** FreeDict dictionaries are professionally maintained and used by major Linux distributions.
+
+## 🗂️ Data Structure and Processing
+
+### WikiDict Schema Implementation
+
+PolyBook uses a sophisticated multi-format database system to support rich dictionary functionality:
+
+#### Primary WikiDict Format
+```sql
+CREATE TABLE translation (
+    written_rep TEXT NOT NULL,     -- Word/headword (e.g., "cold")
+    lexentry TEXT,                 -- Lexical entry with part of speech
+    sense TEXT,                    -- Definition/meaning description
+    trans_list TEXT,               -- Pipe-separated translations
+    pos TEXT,                      -- Part of speech
+    domain TEXT,                   -- Semantic domain
+    lang_code TEXT                 -- Language code
+);
+```
+
+#### Synonym Storage
+- **Format**: Pipe-separated values in `trans_list` field
+- **Example**: `"frío | helado | gélido | frígido | algente"`
+- **Processing**: Split by ` | ` to create synonym arrays for UI cycling
+
+#### Two-Level Cycling System
+1. **Meaning Cycling (Emoji)**: Navigate between different semantic meanings (noun/verb/adjective)
+2. **Synonym Cycling (Word)**: Navigate between synonyms within the current meaning
+
+### Recent Enhancements (2025)
+
+- ✅ **Deduplication Logic**: Removes meanings with identical UI content
+- ✅ **ML Kit Fallback**: Graceful fallback without fake cycling structures
+- ✅ **Directional Databases**: Optimized lookup with `en-es`, `es-en` specific databases
+- ✅ **Multi-Schema Support**: Compatible with WikiDict, StarDict, and PyGlossary formats
+- ✅ **Performance Indexing**: Optimized database indexes for mobile performance
+
+### Data Sources Quality
+- **Entry Counts**: 4,500 to 120,000+ entries per language pair
+- **Accuracy**: Professional-grade translations from established linguistic sources
+- **Maintenance**: Regular updates from FreeDict project with version tracking
+- **Coverage**: Optimized for high-frequency vocabulary essential for language learners
+
+For complete technical documentation, see: [WikiDict Data Structure Documentation](WIKTIONARY_DATA_STRUCTURE.md)

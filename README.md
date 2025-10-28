@@ -20,11 +20,13 @@ npm run dev
 
 **Current Phase**: Advanced Implementation Complete → Production Ready
 - ✅ Core MVP functionality implemented and tested
-- ✅ Comprehensive multilingual dictionary system
+- ✅ WikiDict/Wiktionary integration with two-level cycling UI
+- ✅ Comprehensive multilingual dictionary system with synonym support
 - ✅ PDF processing with WebView integration
-- ✅ Advanced translation services architecture
-- ✅ Language pack management system
-- ✅ User interface components completed
+- ✅ Advanced translation services (WikiDict primary, ML Kit fallback)
+- ✅ Language pack management with directional databases
+- ✅ User interface components with intelligent cycling system
+- ✅ Deduplication and fallback handling optimizations
 - 🚧 **Next**: Final testing and deployment preparation
 
 ## 🎯 Core Features
@@ -115,9 +117,11 @@ npm run dev
 
 ### ✅ Phase 1: MVP Foundation (COMPLETED)
 - ✅ Advanced reading functionality (PDF, TXT, HTML)
+- ✅ WikiDict/Wiktionary integration with sophisticated data processing
 - ✅ Spanish ↔ English dictionary with 93K+ entries (corruption-resistant)
 - ✅ Mandarin ↔ English dictionary system (4.6MB optimized)  
-- ✅ 12-language multilingual dictionary system
+- ✅ 12-language multilingual dictionary system with directional databases
+- ✅ Two-level synonym cycling (meaning/part-of-speech + word cycling)
 - ✅ Local storage and vocabulary management
 - ✅ Robust GitHub Actions CI/CD pipeline with error handling
 
@@ -147,10 +151,25 @@ npm install
 ```
 
 ### Dictionary System
-- **Source**: Wiktionary dictionaries via [Vuizur/Wiktionary-Dictionaries](https://github.com/Vuizur/Wiktionary-Dictionaries)
-- **Build**: GitHub Actions automatically builds all 10 language pairs
-- **Format**: StarDict → SQLite conversion for mobile optimization
-- **Storage**: Downloadable language packs (1-7MB each)
+- **Primary Source**: FreeDict Project (GPL-licensed, professionally maintained)
+- **Secondary Source**: Wiktionary dictionaries via [Vuizur/Wiktionary-Dictionaries](https://github.com/Vuizur/Wiktionary-Dictionaries)
+- **Build**: GitHub Actions automatically builds all language pairs with error handling
+- **Format**: StarDict → SQLite conversion with multiple schema support (WikiDict, StarDict, PyGlossary)
+- **Storage**: Downloadable language packs (1-7MB each, directional databases)
+- **Features**: Two-level synonym cycling, deduplication, ML Kit fallback
+
+## 📚 Documentation
+
+For comprehensive technical information, see our detailed documentation:
+
+- **[📋 Technical Specification](docs/TECHNICAL_SPEC.md)** - Architecture, database schemas, and implementation details
+- **[🗂️ WikiDict Data Structure](docs/WIKTIONARY_DATA_STRUCTURE.md)** - Complete documentation of dictionary data formats and processing
+- **[📖 Services Documentation](docs/SERVICES_DOCUMENTATION.md)** - API documentation for all services
+- **[🏗️ Project Overview](docs/PROJECT_OVERVIEW.md)** - High-level project understanding and structure
+- **[📊 Implementation Status](docs/IMPLEMENTATION_STATUS.md)** - Current development progress and component status
+- **[🔧 Dictionary Setup](packages/app/DICTIONARY_SETUP.md)** - Database configuration and setup guide
+- **[📱 ML Kit Setup](packages/app/MLKIT_SETUP.md)** - Translation service configuration
+- **[📦 Deployment Guide](packages/app/DEPLOYMENT_GUIDE.md)** - Production deployment procedures
 
 ## 📄 License
 

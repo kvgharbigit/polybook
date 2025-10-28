@@ -18,23 +18,26 @@
 │                 │                 │                         │
 │ React Native + Expo (Bare Workflow)                        │
 ├─────────────────────────────────────────────────────────────┤
+│                  Translation Pipeline                      │
+│ • WikiDict (Primary) • ML Kit (Fallback) • Two-level UI   │
+├─────────────────────────────────────────────────────────────┤
 │                  Shared Business Logic                     │
-│ • Book parsing   • Translation   • Vocabulary management   │
+│ • Book parsing   • Dictionary services • Vocab management  │
 ├─────────────────────────────────────────────────────────────┤
 │                    Local Storage                           │
-│ • SQLite (books, positions, vocabulary)                    │
+│ • SQLite (books, positions, vocabulary, dictionaries)     │
 │ • File system (EPUB/PDF files, language packs)            │
 ├─────────────────────────────────────────────────────────────┤
-│                    ML Components                           │
-│ • Bergamot WASM (web) / TFLite (mobile)                   │
-│ • Dictionary FTS • Tokenizers • Lemmatizers               │
+│                  Dictionary Components                     │
+│ • WikiDict databases • StarDict format • Synonym cycling  │
+│ • ML Kit translation • Language detection • FTS search    │
 └─────────────────────────────────────────────────────────────┘
                                │
                                │ (Optional sync & auth)
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    Cloud Services                          │
-│ • Supabase Auth  • Payment processing  • Sync storage     │
+│ • Supabase Auth  • Language pack CDN • Sync storage       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -114,7 +117,7 @@ interface LanguagePack {
 ### Database Schema (SQLite)
 
 ```sql
--- Core tables
+-- Core application tables
 CREATE TABLE books (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
@@ -179,17 +182,42 @@ CREATE TABLE language_packs (
   checksum TEXT NOT NULL
 );
 
--- FTS for dictionary search
-CREATE VIRTUAL TABLE dictionary_fts USING fts5(
-  headword,
-  lemma,
-  definition,
-  examples,
-  language_pair,
-  content='dictionary'
+-- Dictionary database schemas (Language Packs)
+-- WikiDict primary format
+CREATE TABLE translation (
+  id INTEGER PRIMARY KEY,
+  written_rep TEXT NOT NULL,     -- Word/headword
+  lexentry TEXT,                 -- Lexical entry with POS
+  sense TEXT,                    -- Definition/meaning 
+  trans_list TEXT,               -- Pipe-separated translations
+  pos TEXT,                      -- Part of speech
+  domain TEXT,                   -- Semantic domain
+  lang_code TEXT,                -- Language code
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Indexes for performance
+-- StarDict fallback format
+CREATE TABLE dict (
+  lemma TEXT PRIMARY KEY,        -- Word/headword
+  def TEXT NOT NULL,             -- HTML definition
+  syns TEXT,                     -- JSON array of synonyms
+  examples TEXT                  -- JSON array of examples
+);
+
+-- PyGlossary simple format
+CREATE TABLE word (
+  id INTEGER PRIMARY KEY,
+  w TEXT NOT NULL,               -- Word
+  m TEXT NOT NULL                -- Meaning/translation
+);
+
+-- Performance indexes
+CREATE INDEX idx_translation_written_rep ON translation(written_rep);
+CREATE INDEX idx_translation_pos ON translation(pos);
+CREATE INDEX idx_dict_lemma ON dict(lemma);
+CREATE INDEX idx_word_w ON word(w);
+
+-- Application indexes
 CREATE INDEX idx_cards_book_language ON vocabulary_cards(book_id, source_language, target_language);
 CREATE INDEX idx_cache_languages ON translation_cache(source_language, target_language);
 CREATE INDEX idx_positions_updated ON positions(updated_at);
@@ -197,31 +225,111 @@ CREATE INDEX idx_positions_updated ON positions(updated_at);
 
 ## Translation Pipeline
 
-### Word Translation Flow
+### Enhanced Word Translation Flow
 
 ```typescript
 async function translateWord(word: string, context: string): Promise<WordTranslation> {
-  // 1. Tokenization
-  const tokens = await tokenizer.tokenize(word, sourceLanguage);
+  // 1. Language detection
+  const sourceLanguage = await detectLanguage(word);
   
-  // 2. Lemmatization
-  const lemma = await lemmatizer.getLemma(tokens[0]);
+  // 2. Dictionary database selection
+  const directionalKey = `${sourceLanguage}-${targetLanguage}`;
+  const db = databases.get(directionalKey);
   
-  // 3. Dictionary lookup (SQLite FTS)
-  const definitions = await database.searchDictionary(lemma, languagePair);
+  // 3. WikiDict lookup (primary)
+  const wikiResults = await db.getAllAsync(
+    'SELECT lexentry, sense, trans_list FROM translation WHERE written_rep = ? COLLATE NOCASE',
+    [word]
+  );
   
-  // 4. Context-aware ranking
-  const rankedDefinitions = rankByContext(definitions, context);
+  if (wikiResults.length > 0) {
+    // 4. Process multiple meanings
+    const meaningGroups = wikiResults.map(row => ({
+      partOfSpeech: extractPartOfSpeech(row.lexentry),
+      translations: row.trans_list.split(' | '),
+      definition: row.sense,
+      synonyms: row.trans_list.split(' | '),
+      emoji: getPartOfSpeechIcon(row.pos)
+    }));
+    
+    // 5. Deduplication
+    const uniqueMeanings = deduplicateIdenticalMeanings(meaningGroups);
+    
+    return {
+      success: true,
+      wordDefinitions: uniqueMeanings,
+      cyclingEnabled: uniqueMeanings.length > 1
+    };
+  }
+  
+  // 6. ML Kit fallback
+  const mlTranslation = await MLKit.translate(word, {
+    from: sourceLanguage,
+    to: targetLanguage
+  });
   
   return {
-    original: word,
-    lemma,
-    definitions: rankedDefinitions,
-    phonetic: definitions[0]?.phonetic,
-    frequency: definitions[0]?.frequency
+    success: true,
+    translation: mlTranslation.text,
+    cyclingEnabled: false // No cycling for ML fallback
   };
 }
 ```
+
+### Two-Level Cycling System
+
+```typescript
+// Level 1: Meaning/Part-of-Speech Cycling (Emoji)
+const cyclePartOfSpeech = () => {
+  if (wordDefinitions.length <= 1) return;
+  
+  const nextPosIndex = (currentPartOfSpeechIndex + 1) % wordDefinitions.length;
+  setCurrentPartOfSpeechIndex(nextPosIndex);
+  setCurrentSynonymIndex(0); // Reset to first synonym
+  
+  // Update with first synonym of new meaning
+  const newTranslation = wordDefinitions[nextPosIndex]?.definitions[0]?.synonyms[0];
+  setLookupResult({...lookupResult, translation: newTranslation});
+};
+
+// Level 2: Synonym Cycling (Word)
+const cycleSynonym = () => {
+  const currentDefinition = wordDefinitions[currentPartOfSpeechIndex];
+  const synonyms = currentDefinition.definitions[0].synonyms;
+  
+  if (synonyms.length <= 1) return;
+  
+  const nextSynIndex = (currentSynonymIndex + 1) % synonyms.length;
+  setCurrentSynonymIndex(nextSynIndex);
+  
+  // Update with new synonym
+  const newTranslation = synonyms[nextSynIndex];
+  setLookupResult({...lookupResult, translation: newTranslation});
+};
+```
+
+### Dictionary Database Management
+
+```typescript
+// Directional database system for optimal lookup
+const directionalDatabases = new Map([
+  ['en-es', englishToSpanishDB],    // English headwords → Spanish translations
+  ['es-en', spanishToEnglishDB],    // Spanish headwords → English translations
+  ['en-fr', englishToFrenchDB],     // English headwords → French translations
+  // ... additional language pairs
+]);
+
+// Database selection logic
+function selectDatabase(sourceLanguage: string, targetLanguage: string) {
+  const directionalKey = `${sourceLanguage}-${targetLanguage}`;
+  const db = directionalDatabases.get(directionalKey);
+  
+  if (!db) {
+    throw new Error(`No dictionary available for ${directionalKey}`);
+  }
+  
+  return db;
+}
 
 ### Sentence Translation Flow
 

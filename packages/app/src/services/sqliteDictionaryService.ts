@@ -127,6 +127,20 @@ export class SQLiteDictionaryService {
     try {
       // First check Language Packs
       const installedPacks = await LanguagePackService.getInstalledPacks();
+      
+      // Handle directional keys like "en-es"
+      if (languageCode.includes('-')) {
+        const languagePack = installedPacks.find(pack => pack.manifest.id === languageCode);
+        if (languagePack && languagePack.dictionaryPath) {
+          const fileInfo = await FileSystem.getInfoAsync(languagePack.dictionaryPath);
+          if (fileInfo.exists && fileInfo.size! > 0) {
+            return true;
+          }
+        }
+        return false;
+      }
+      
+      // Handle individual language codes
       const languagePack = installedPacks.find(pack => 
         pack.manifest.sourceLanguage === languageCode || pack.manifest.targetLanguage === languageCode
       );
@@ -204,9 +218,17 @@ export class SQLiteDictionaryService {
       try {
         // First, try to find in Language Packs
         console.log(`📖 Looking for language pack for ${lang}...`);
-        const languagePack = installedPacks.find(pack => 
-          pack.manifest.sourceLanguage === lang || pack.manifest.targetLanguage === lang
-        );
+        
+        // Handle directional keys like "en-es" by exact ID match
+        let languagePack;
+        if (lang.includes('-')) {
+          languagePack = installedPacks.find(pack => pack.manifest.id === lang);
+        } else {
+          // Handle individual language codes
+          languagePack = installedPacks.find(pack => 
+            pack.manifest.sourceLanguage === lang || pack.manifest.targetLanguage === lang
+          );
+        }
         
         if (languagePack) {
           console.log(`📖 Found language pack: ${languagePack.manifest.id} for ${lang}`);
@@ -498,7 +520,7 @@ export class SQLiteDictionaryService {
       // Check if we have the required languages
       console.log(`📚 Step 7: Determining required languages...`);
       const requiredLanguages = needsTranslation 
-        ? [sourceLanguage, userProfile.nativeLanguage]
+        ? [sourceLanguage, userProfile.nativeLanguage, `${sourceLanguage}-${userProfile.nativeLanguage}`]
         : [userProfile.nativeLanguage];
       console.log(`📚 Step 7: Required languages: ${requiredLanguages.join(', ')}`);
       
@@ -514,7 +536,8 @@ export class SQLiteDictionaryService {
           lang === 'fr' ? 'French' :
           lang === 'de' ? 'German' :
           lang === 'it' ? 'Italian' :
-          lang === 'pt' ? 'Portuguese' : lang
+          lang === 'pt' ? 'Portuguese' : 
+          lang.includes('-') ? `${lang} dictionary` : lang
         ).join(', ');
         console.log(`📚 Step 8: Missing language names: ${languageNames}`);
         
@@ -580,10 +603,25 @@ export class SQLiteDictionaryService {
       console.log(`🔄 Source Language: ${sourceLanguage}`);
       console.log(`🔄 Target Language: ${userProfile.nativeLanguage}`);
       
-      // Step 1: Look up word in bilingual StarDict dictionary to get translation
+      // Step 1: Look up word in bilingual dictionary (WikiDict or StarDict) to get translation
       console.log(`🔄 Step 1: Starting bilingual dictionary translation...`);
       const translation = await this.translateWordUsingStarDict(word, sourceLanguage, userProfile.nativeLanguage);
       console.log(`🔄 Step 1 Result: Translation = "${translation}"`);
+      
+      // Check if this is a rich WikiDict response
+      if (translation && translation.startsWith('WIKIDICT:')) {
+        const wikidictData = JSON.parse(translation.replace('WIKIDICT:', ''));
+        console.log(`🔄 Step 1: ✅ Found rich WikiDict data`);
+        
+        const finalResult = {
+          success: true,
+          word,
+          sourceLanguage,
+          primaryDefinition: wikidictData
+        };
+        console.log(`🔄 ===== CROSS-LANGUAGE LOOKUP END (WIKIDICT SUCCESS) =====`);
+        return finalResult;
+      }
       
       if (!translation) {
         console.log(`🔄 Step 1: ❌ No translation found in bilingual dictionary`);
@@ -822,16 +860,106 @@ export class SQLiteDictionaryService {
       
       console.log(`📖 ✅ Found database for ${directionalKey}`);
       
-      // Try PyGlossary format (word table)
-      const rows = await db.getAllAsync('SELECT w, m FROM word WHERE w = ? COLLATE NOCASE LIMIT 1', [word]);
+      // Try multiple table schemas: dict, word, and WikiDict simple_translation
+      let rows = [];
       
-      if (rows.length > 0) {
-        const definition = rows[0].m;
-        console.log(`📖 ✅ Found translation: "${word}" → "${definition}"`);
-        return definition;
+      try {
+        // First try StarDict format (dict table) - lemma/def columns
+        console.log(`📖 Trying StarDict format (dict table)...`);
+        rows = await db.getAllAsync('SELECT lemma, def FROM dict WHERE lemma = ? COLLATE NOCASE LIMIT 1', [word]);
+        
+        if (rows.length > 0) {
+          const definition = rows[0].def;
+          console.log(`📖 ✅ Found translation in dict table: "${word}" → "${definition}"`);
+          return definition;
+        }
+      } catch (error) {
+        console.log(`📖 Dict table not available, trying other formats...`);
       }
       
-      console.log(`📖 No translation found for "${word}" in ${directionalKey}`);
+      try {
+        // Try WikiDict format - use detailed translation table for rich data
+        console.log(`📖 Trying WikiDict format (translation table)...`);
+        rows = await db.getAllAsync('SELECT lexentry, sense, trans_list FROM translation WHERE written_rep = ? COLLATE NOCASE LIMIT 3', [word]);
+        
+        if (rows.length > 0) {
+          console.log(`📖 ✅ Found WikiDict translation with ${rows.length} senses`);
+          
+          // Build rich WikiDict definition with multiple senses
+          const allTranslations = rows[0].trans_list ? rows[0].trans_list.split(' | ') : [];
+          const primaryTranslation = allTranslations[0] || '';
+          
+          // Translate definitions if needed
+          const translatedDefinitions = await Promise.all(
+            rows.map(async (row) => {
+              const translatedSense = await this.formatDefinitionForUser(row.sense, fromLang, toLang);
+              return {
+                partOfSpeech: this.extractPartOfSpeech(row.lexentry),
+                definition: `"${word}" significa "${primaryTranslation}" - ${translatedSense}`,
+                definitionLanguage: toLang, // Definition shown in user's native language
+                synonyms: allTranslations.slice(1, 4).map(t => t.trim()), // Other translations as synonyms
+                example: this.generateContextualExample(word, row.sense, primaryTranslation, fromLang, toLang)
+              };
+            })
+          );
+          
+          // Create a structured BilingualWordDefinition directly
+          const wikidictDefinition: BilingualWordDefinition = {
+            word: word,
+            language: fromLang,
+            
+            translations: allTranslations.slice(0, 5).map((trans, index) => ({
+              word: trans.trim(),
+              language: toLang,
+              confidence: Math.max(0.95 - (index * 0.1), 0.7) // Higher confidence for first translations
+            })),
+            
+            definitions: translatedDefinitions,
+            
+            // Add metadata if available
+            frequency: this.estimateWordFrequency(word, fromLang),
+            difficulty: this.estimateDifficulty(word, fromLang),
+            
+            // Cross-language enrichment for user's context
+            crossLanguageData: {
+              targetSynonyms: this.getTargetLanguageSynonyms(primaryTranslation, toLang),
+              culturalNotes: this.getCulturalNotes(word, fromLang, toLang)
+            }
+          };
+          
+          console.log(`📖 Built rich WikiDict definition with ${wikidictDefinition.definitions.length} senses`);
+          return `WIKIDICT:${JSON.stringify(wikidictDefinition)}`;
+        }
+        
+        // Fallback to simple table if detailed not available
+        console.log(`📖 Trying WikiDict simple_translation table...`);
+        rows = await db.getAllAsync('SELECT written_rep, trans_list FROM simple_translation WHERE written_rep = ? COLLATE NOCASE LIMIT 1', [word]);
+        
+        if (rows.length > 0) {
+          const translationList = rows[0].trans_list;
+          const primaryTranslation = translationList.split(' | ')[0];
+          console.log(`📖 ✅ Found translation in WikiDict simple table: "${word}" → "${primaryTranslation}"`);
+          return primaryTranslation;
+        }
+      } catch (error) {
+        console.log(`📖 WikiDict table not available, trying PyGlossary format...`);
+      }
+      
+      try {
+        // Fallback to PyGlossary format (word table) - w/m columns
+        console.log(`📖 Trying PyGlossary format (word table)...`);
+        rows = await db.getAllAsync('SELECT w, m FROM word WHERE w = ? COLLATE NOCASE LIMIT 1', [word]);
+        
+        if (rows.length > 0) {
+          const definition = rows[0].m;
+          console.log(`📖 ✅ Found translation in word table: "${word}" → "${definition}"`);
+          return definition;
+        }
+      } catch (error) {
+        console.log(`📖 Word table not available`);
+      }
+      
+      console.log(`📖 No translation found for "${word}" in ${directionalKey} (tried dict, WikiDict, and word tables)`);
       return null;
         
     } catch (error) {
@@ -987,23 +1115,24 @@ export class SQLiteDictionaryService {
     targetLanguage: string,
     translation: string,
     examples: string[]
-  ): any {
+  ): BilingualWordDefinition {
     return {
       word: sourceWord,
-      definition: this.cleanHtmlDefinition(translation),
-      pronunciation: null,
-      partOfSpeech: null,
-      examples: examples || [],
-      synonyms: this.extractSynonymsFromDefinition(translation),
+      language: sourceLanguage,
+      
       translations: [{
-        text: targetWord || this.cleanHtmlDefinition(translation),
+        word: targetWord || this.cleanHtmlDefinition(translation),
         language: targetLanguage,
         confidence: 0.9
       }],
-      sourceLanguage,
-      targetLanguage,
-      etymology: null,
-      frequency: null
+      
+      definitions: [{
+        partOfSpeech: '', // Will be filled by WikiDict
+        definition: this.cleanHtmlDefinition(translation),
+        definitionLanguage: targetLanguage,
+        example: examples && examples[0] || undefined,
+        synonyms: this.extractSynonymsFromDefinition(translation)
+      }]
     };
   }
 
@@ -1037,6 +1166,213 @@ export class SQLiteDictionaryService {
   }
 
   /**
+   * Extract part of speech from WikiDict lexentry
+   */
+  private static extractPartOfSpeech(lexentry: string): string {
+    if (!lexentry) return '';
+    
+    // WikiDict lexentry format: eng/hello__Interjection__1
+    const parts = lexentry.split('__');
+    if (parts.length >= 2) {
+      return parts[1].toLowerCase();
+    }
+    
+    return '';
+  }
+
+  /**
+   * Format WikiDict definition with multiple senses
+   */
+  private static formatWikiDictDefinition(word: string, definitions: any[]): string {
+    if (!definitions || definitions.length === 0) return '';
+    
+    let html = '<div class="wiki-definition">';
+    
+    definitions.forEach((def, index) => {
+      html += '<div class="definition-sense">';
+      
+      if (def.partOfSpeech) {
+        html += `<span class="part-of-speech">[${def.partOfSpeech}]</span> `;
+      }
+      
+      if (def.definition) {
+        html += `<span class="definition">${def.definition}</span>`;
+      }
+      
+      if (def.allTranslations && def.allTranslations.length > 0) {
+        html += '<div class="translations">';
+        html += '<strong>Translations:</strong> ';
+        html += def.allTranslations.slice(0, 3).join(', ');
+        if (def.allTranslations.length > 3) {
+          html += ` (+${def.allTranslations.length - 3} more)`;
+        }
+        html += '</div>';
+      }
+      
+      html += '</div>';
+      
+      if (index < definitions.length - 1) {
+        html += '<br>';
+      }
+    });
+    
+    html += '</div>';
+    return html;
+  }
+
+  /**
+   * Format definition text based on user's context and languages
+   */
+  private static async formatDefinitionForUser(sense: string, fromLang: string, toLang: string): Promise<string> {
+    if (!sense) return 'Translation available';
+    
+    // For Spanish users reading English definitions, translate via ML Kit
+    if (fromLang === 'en' && toLang === 'es' && sense.trim()) {
+      try {
+        const Translation = (await import('../services')).Translation;
+        const result = await Translation.translate(sense, {
+          from: 'en',
+          to: 'es',
+          timeoutMs: 5000
+        });
+        
+        if (result.text) {
+          console.log(`📖 Translated definition: "${sense}" → "${result.text}"`);
+          return result.text;
+        }
+      } catch (error) {
+        console.log(`📖 Translation failed for definition, using original: ${error}`);
+      }
+    }
+    
+    // Return original if translation fails or not needed
+    return sense;
+  }
+
+  /**
+   * Generate contextual examples based on user's language profile
+   */
+  private static generateContextualExample(
+    word: string, 
+    sense: string, 
+    translation: string, 
+    fromLang: string, 
+    toLang: string
+  ): string | undefined {
+    // Generate examples that help the user understand usage in their native context
+    if (fromLang === 'en' && toLang === 'es') {
+      // Spanish user learning English
+      return `"${word}" se usa como: "${sense}" → "${translation}"`;
+    }
+    
+    if (fromLang === 'es' && toLang === 'en') {
+      // English user learning Spanish
+      return `"${word}" is used as: "${sense}" → "${translation}"`;
+    }
+    
+    return `"${word}" → "${translation}"`;
+  }
+
+  /**
+   * Get synonyms in the target language
+   */
+  private static getTargetLanguageSynonyms(primaryTranslation: string, toLang: string): string[] {
+    // This could be enhanced with a synonym database
+    const commonSynonyms: Record<string, Record<string, string[]>> = {
+      es: {
+        'hola': ['saludo', 'buenos días', 'buenas tardes'],
+        'casa': ['hogar', 'vivienda', 'domicilio'],
+        'grande': ['enorme', 'gigante', 'amplio']
+      },
+      en: {
+        'hello': ['hi', 'greetings', 'good day'],
+        'house': ['home', 'residence', 'dwelling'],
+        'big': ['large', 'huge', 'enormous']
+      }
+    };
+    
+    return commonSynonyms[toLang]?.[primaryTranslation.toLowerCase()] || [];
+  }
+
+  /**
+   * Get cultural notes for better understanding
+   */
+  private static getCulturalNotes(word: string, fromLang: string, toLang: string): string[] {
+    // Provide cultural context that helps users understand usage differences
+    const culturalNotes: Record<string, Record<string, string[]>> = {
+      'en-es': {
+        'hello': ['En español, el saludo cambia según la hora del día'],
+        'please': ['En español, "por favor" es más formal que en inglés']
+      },
+      'es-en': {
+        'hola': ['In English, "hello" works for any time of day'],
+        'usted': ['English "you" doesn\'t distinguish formal/informal like Spanish']
+      }
+    };
+    
+    const key = `${fromLang}-${toLang}`;
+    return culturalNotes[key]?.[word.toLowerCase()] || [];
+  }
+
+  /**
+   * Estimate word frequency for learning prioritization
+   */
+  private static estimateWordFrequency(word: string, language: string): number {
+    // Basic frequency estimation - could be enhanced with real frequency data
+    const commonWords = {
+      en: ['the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'it'],
+      es: ['que', 'de', 'no', 'a', 'la', 'el', 'ser', 'y', 'tener', 'hacer']
+    };
+    
+    const langCommon = commonWords[language as keyof typeof commonWords] || [];
+    const index = langCommon.indexOf(word.toLowerCase());
+    
+    if (index !== -1) {
+      return index + 1; // Top 10 most common words
+    }
+    
+    // Estimate based on word length and complexity
+    if (word.length <= 4) return Math.floor(Math.random() * 1000) + 100;
+    if (word.length <= 7) return Math.floor(Math.random() * 5000) + 1000;
+    return Math.floor(Math.random() * 10000) + 5000;
+  }
+
+  /**
+   * Estimate difficulty level for learning
+   */
+  private static estimateDifficulty(word: string, language: string): 'beginner' | 'intermediate' | 'advanced' {
+    // Basic difficulty estimation
+    if (word.length <= 4) return 'beginner';
+    if (word.length <= 8) return 'intermediate';
+    return 'advanced';
+  }
+
+  /**
+   * Force reload databases (useful after new language packs are installed)
+   */
+  static async reloadDatabases(): Promise<void> {
+    console.log('📚 SQLiteDictionaryService: Force reloading databases...');
+    
+    // Close existing databases
+    for (const [key, db] of this.databases.entries()) {
+      try {
+        await db.closeAsync();
+        console.log(`📚 Closed database: ${key}`);
+      } catch (error) {
+        console.log(`📚 Error closing database ${key}:`, error);
+      }
+    }
+    
+    // Clear database map
+    this.databases.clear();
+    
+    // Reload all available dictionaries
+    await this.openAvailableDictionaries();
+    
+    console.log(`📚 ✅ Databases reloaded. Available: ${Array.from(this.databases.keys()).join(', ')}`);
+  }
+
+  /**
    * Get statistics
    */
   static getStats(): { 
@@ -1048,7 +1384,7 @@ export class SQLiteDictionaryService {
     return {
       totalEntries: this.databases.size * 30000, // Estimated
       languagePairs: ['en-es', 'es-en', 'en-fr', 'fr-en'],
-      version: '1.0.0-sqlite',
+      version: '1.0.0-sqlite-wikidict',
       availableLanguages: this.getAvailableLanguages()
     };
   }

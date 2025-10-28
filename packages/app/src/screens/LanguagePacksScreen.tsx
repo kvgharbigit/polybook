@@ -119,23 +119,69 @@ export default function LanguagePacksScreen() {
 
       console.log(`📦 LanguagePacksScreen: Starting download for ${pack.name}`);
 
+      // Immediately set download state to show UI feedback
+      const initialDownload: LanguagePackDownload = {
+        id: pack.id,
+        status: 'pending',
+        progress: 0,
+        downloadedBytes: 0,
+        totalBytes: pack.totalSize,
+        retryCount: 0,
+        startedAt: new Date()
+      };
+      
+      setActiveDownloads(prev => {
+        const newMap = new Map(prev);
+        newMap.set(pack.id, initialDownload);
+        return newMap;
+      });
+
       // Download the main pack
       await LanguagePackService.startDownload(pack.id, (download) => {
-        setActiveDownloads(prev => new Map(prev.set(pack.id, download)));
+        console.log(`📱 UI: Download progress update for ${pack.id}:`, download.status, download.progress);
+        setActiveDownloads(prev => {
+          const newMap = new Map(prev);
+          newMap.set(pack.id, download);
+          return newMap;
+        });
         
         // When main pack completes, start companion pack download
         if (download.status === 'completed' && pack.companionPackId) {
+          console.log(`📱 UI: Main pack ${pack.id} completed, starting companion pack ${pack.companionPackId}`);
           downloadCompanionPack(pack.companionPackId);
+          
+          // Clean up main pack download state after a delay
+          setTimeout(() => {
+            setActiveDownloads(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(pack.id);
+              return newMap;
+            });
+          }, 2000);
         } else if (download.status === 'completed') {
-          // No companion pack, just reload data
+          // No companion pack, just reload data and clean up
+          console.log(`📱 UI: Main pack ${pack.id} completed, no companion pack`);
           setTimeout(() => {
             loadData();
+            setActiveDownloads(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(pack.id);
+              return newMap;
+            });
           }, 1000);
         }
       });
 
     } catch (error) {
       console.error(`📦 LanguagePacksScreen: Download error for ${pack.id}:`, error);
+      
+      // Remove download state on error
+      setActiveDownloads(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(pack.id);
+        return newMap;
+      });
+      
       Alert.alert('Download Failed', String(error));
     }
   };
@@ -145,17 +191,36 @@ export default function LanguagePacksScreen() {
       console.log(`📦 LanguagePacksScreen: Starting companion pack download for ${companionPackId}`);
       
       await LanguagePackService.startDownload(companionPackId, (download) => {
-        setActiveDownloads(prev => new Map(prev.set(companionPackId, download)));
+        console.log(`📱 UI: Companion download progress update for ${companionPackId}:`, download.status, download.progress);
+        setActiveDownloads(prev => {
+          const newMap = new Map(prev);
+          newMap.set(companionPackId, download);
+          return newMap;
+        });
         
         // Reload data when companion download completes
         if (download.status === 'completed') {
           setTimeout(() => {
             loadData();
+            // Clean up companion download state
+            setActiveDownloads(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(companionPackId);
+              return newMap;
+            });
           }, 1000);
         }
       });
     } catch (error) {
       console.error(`📦 LanguagePacksScreen: Companion download error for ${companionPackId}:`, error);
+      
+      // Remove download state on actual errors
+      setActiveDownloads(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(companionPackId);
+        return newMap;
+      });
+      
       // Don't show alert for companion pack failures, just log
     }
   };
@@ -164,9 +229,23 @@ export default function LanguagePacksScreen() {
     const pack = installedPacks.find(p => p.id === packId);
     if (!pack) return;
 
+    // Check if this pack has a companion pack that also needs deletion
+    const companionPackId = pack.manifest.companionPackId;
+    const companionPack = companionPackId ? installedPacks.find(p => p.id === companionPackId) : null;
+    
+    // Calculate total storage freed (main + companion)
+    let totalSize = pack.manifest.totalSize;
+    if (companionPack) {
+      totalSize += companionPack.manifest.totalSize;
+    }
+
+    const deleteMessage = companionPack ? 
+      `Are you sure you want to delete ${pack.manifest.name}? This will delete both directions (${pack.manifest.sourceLanguage.toUpperCase()} ↔ ${pack.manifest.targetLanguage.toUpperCase()}) and free up ${formatPackSize(totalSize)} of storage.` :
+      `Are you sure you want to delete ${pack.manifest.name}? This will free up ${formatPackSize(pack.manifest.totalSize)} of storage.`;
+
     Alert.alert(
       'Delete Language Pack',
-      `Are you sure you want to delete ${pack.manifest.name}? This will free up ${formatPackSize(pack.manifest.totalSize)} of storage.`,
+      deleteMessage,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -174,9 +253,28 @@ export default function LanguagePacksScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              console.log(`📦 LanguagePacksScreen: Deleting main pack ${packId}`);
               await LanguagePackService.deletePack(packId);
+              
+              // Also delete companion pack if it exists
+              if (companionPack) {
+                console.log(`📦 LanguagePacksScreen: Deleting companion pack ${companionPackId}`);
+                try {
+                  await LanguagePackService.deletePack(companionPackId);
+                  console.log(`📦 LanguagePacksScreen: Successfully deleted both packs: ${packId} and ${companionPackId}`);
+                } catch (companionError) {
+                  console.error(`📦 LanguagePacksScreen: Failed to delete companion pack ${companionPackId}:`, companionError);
+                  // Continue - main pack was deleted successfully
+                }
+              }
+              
               await loadData();
-              console.log(`📦 LanguagePacksScreen: Deleted pack ${packId}`);
+              
+              const successMessage = companionPack ? 
+                `Deleted both directions of ${pack.manifest.name}` :
+                `Deleted ${pack.manifest.name}`;
+              Alert.alert('Success', successMessage);
+              
             } catch (error) {
               console.error(`📦 LanguagePacksScreen: Delete error for ${packId}:`, error);
               Alert.alert('Error', 'Failed to delete language pack');
@@ -300,84 +398,127 @@ export default function LanguagePacksScreen() {
     const download = activeDownloads.get(pack.id);
     const installedPack = installedPacks.find(p => p.id === pack.id);
 
+    // Check companion pack progress too
+    const companionDownloading = pack.companionPackId ? isPackDownloading(pack.companionPackId) : false;
+    const companionDownload = pack.companionPackId ? activeDownloads.get(pack.companionPackId) : null;
+    const anyDownloading = downloading || companionDownloading;
+
+    // Check if any download has completed but UI hasn't refreshed yet
+    const mainCompleted = Boolean(download && download.status === 'completed');
+    const companionCompleted = Boolean(companionDownload && companionDownload.status === 'completed');
+    const downloadJustCompleted = mainCompleted || companionCompleted;
+    
+    // For bidirectional packs, consider installed only when both are truly available
+    // Use Boolean() to ensure we never get undefined values
+    const effectivelyInstalled = installed || (pack.companionPackId ? (mainCompleted && companionCompleted) : mainCompleted);
+
+    // Debug logging for UI state
+    if (anyDownloading || download || companionDownload || downloadJustCompleted) {
+      console.log(`📱 UI: Rendering ${pack.id} - main downloading: ${downloading}, companion downloading: ${companionDownloading}, main completed: ${mainCompleted}, companion completed: ${companionCompleted}, effectively installed: ${effectivelyInstalled}`);
+    }
+
     return (
       <View style={styles.packItem}>
         <View style={styles.packInfo}>
-          <Text style={styles.packName}>{pack.name}</Text>
-          <Text style={styles.packDescription}>{pack.description}</Text>
-          <View style={styles.packDetails}>
-            <Text style={styles.packSize}>{formatPackSize(pack.totalSize)}</Text>
-            <Text style={styles.packEntries}>{pack.dictionary.entries.toLocaleString()} entries</Text>
-            <Text style={styles.packVersion}>v{pack.version}</Text>
+          {/* Header */}
+          <View style={styles.packHeader}>
+            <Text style={styles.packName}>{pack.name}</Text>
+            {pack.companionPackId && (
+              <View style={styles.bidirectionalBadge}>
+                <Text style={styles.bidirectionalBadgeText}>↔ Bidirectional</Text>
+              </View>
+            )}
           </View>
           
-          {/* Debug Information */}
-          {installed && installedPack && (
-            <View style={styles.debugInfo}>
-              <Text style={styles.debugTitle}>📊 Debug Info:</Text>
-              <Text style={styles.debugText}>
-                Dict Path: {installedPack.dictionaryPath ? 'OK' : 'MISSING'}
-              </Text>
-              <Text style={styles.debugText}>
-                Installed: {installedPack.installedAt.toLocaleDateString()}
-              </Text>
-              <Text style={styles.debugText}>
-                Lookups: {installedPack.dictionaryLookups}
+          {/* Quick Stats */}
+          <View style={styles.packStats}>
+            <Text style={styles.packSize}>{formatPackSize(pack.totalSize)}</Text>
+            <Text style={styles.packDivider}>•</Text>
+            <Text style={styles.packEntries}>{pack.dictionary.entries.toLocaleString()} entries</Text>
+            {installed && installedPack && (
+              <>
+                <Text style={styles.packDivider}>•</Text>
+                <Text style={styles.packUsage}>{installedPack.dictionaryLookups} lookups</Text>
+              </>
+            )}
+          </View>
+          
+          {/* Installation Status */}
+          {effectivelyInstalled && (
+            <View style={styles.installedInfo}>
+              <Text style={styles.installedText}>
+                ✅ {downloadJustCompleted && !installed ? 'Installing...' : `Installed ${installedPack?.installedAt.toLocaleDateString()}`}
+                {pack.companionPackId ? ' (both directions)' : ''}
               </Text>
             </View>
           )}
           
-          {downloading && download && (
-            <View style={styles.debugInfo}>
-              <Text style={styles.debugTitle}>📥 Download Status:</Text>
-              <Text style={styles.debugText}>
-                Status: {download.status}
-              </Text>
-              <Text style={styles.debugText}>
-                Progress: {download.downloadedBytes}/{download.totalBytes} bytes
-              </Text>
-              {download.error && (
-                <Text style={[styles.debugText, styles.errorText]}>
-                  Error: {download.error}
+          {/* Download Progress */}
+          {anyDownloading && (
+            <View style={styles.downloadStatusCard}>
+              <View style={styles.progressHeader}>
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+                <Text style={styles.progressTitle}>
+                  {downloading && !companionDownloading ? 'Installing main pack' :
+                   !downloading && companionDownloading ? 'Installing companion pack' :
+                   downloading && companionDownloading ? 'Installing both directions' :
+                   'Preparing installation'}
                 </Text>
-              )}
+              </View>
+              
+              <View style={styles.progressBars}>
+                {downloading && download && (
+                  <View style={styles.progressRow}>
+                    <Text style={styles.progressLabel}>Main</Text>
+                    <View style={styles.progressBarContainer}>
+                      <View style={[styles.progressBar, { width: `${download.progress || 0}%` }]} />
+                    </View>
+                    <Text style={styles.progressPercent}>{download.progress || 0}%</Text>
+                  </View>
+                )}
+                
+                {pack.companionPackId && (
+                  <View style={styles.progressRow}>
+                    <Text style={styles.progressLabel}>Companion</Text>
+                    <View style={styles.progressBarContainer}>
+                      <View style={[styles.progressBar, { 
+                        width: companionDownload ? `${companionDownload.progress || 0}%` : '0%' 
+                      }]} />
+                    </View>
+                    <Text style={styles.progressPercent}>
+                      {companionDownload ? (companionDownload.progress || 0) : 0}%
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
           )}
         </View>
 
+        {/* Actions */}
         <View style={styles.packActions}>
           {installed ? (
-            <>
-              <View style={styles.statusBadge}>
-                <Text style={styles.statusText}>✅ Installed</Text>
-              </View>
+            <View style={styles.installedActions}>
               <TouchableOpacity
-                style={styles.testButton}
+                style={styles.actionButton}
                 onPress={() => handleTestDatabase(pack.id)}
               >
-                <Text style={styles.testButtonText}>Test DB</Text>
+                <Text style={styles.actionButtonText}>Test</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.deleteButton}
+                style={[styles.actionButton, styles.deleteActionButton]}
                 onPress={() => handleDelete(pack.id)}
               >
-                <Text style={styles.deleteButtonText}>Delete</Text>
-              </TouchableOpacity>
-            </>
-          ) : downloading ? (
-            <View style={styles.downloadProgress}>
-              <ActivityIndicator size="small" color={theme.colors.primary} />
-              <Text style={styles.progressText}>
-                {download?.status === 'downloading' ? `${download.progress}%` : 
-                 download?.status === 'extracting' ? 'Installing...' : 'Starting...'}
-              </Text>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => handleCancelDownload(pack.id)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={[styles.actionButtonText, styles.deleteActionButtonText]}>Delete</Text>
               </TouchableOpacity>
             </View>
+          ) : anyDownloading ? (
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => handleCancelDownload(pack.id)}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
           ) : (
             <TouchableOpacity
               style={styles.downloadButton}
@@ -611,37 +752,60 @@ const createStyles = (theme: any) => StyleSheet.create({
     paddingHorizontal: 20,
   },
   packItem: {
-    flexDirection: 'row',
     backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    shadowColor: theme.colors.text,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   packInfo: {
     flex: 1,
-    marginRight: 16,
+  },
+  packHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
   packName: {
     fontSize: 16,
     fontWeight: '600',
     color: theme.colors.text,
-    marginBottom: 4,
+    flex: 1,
   },
-  packDescription: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    marginBottom: 8,
-    lineHeight: 20,
+  bidirectionalBadge: {
+    backgroundColor: theme.colors.primary + '15',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.primary + '30',
   },
-  packDetails: {
+  bidirectionalBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: theme.colors.primary,
+  },
+  packStats: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
   },
   packSize: {
     fontSize: 12,
     color: theme.colors.textSecondary,
+    fontWeight: '500',
+  },
+  packDivider: {
+    fontSize: 12,
+    color: theme.colors.border,
     fontWeight: '500',
   },
   packEntries: {
@@ -649,48 +813,99 @@ const createStyles = (theme: any) => StyleSheet.create({
     color: theme.colors.primary,
     fontWeight: '500',
   },
-  packVersion: {
+  packUsage: {
     fontSize: 12,
     color: theme.colors.textSecondary,
+    fontWeight: '500',
   },
-  debugInfo: {
-    marginTop: 12,
-    padding: 8,
-    backgroundColor: theme.colors.background,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  debugTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: theme.colors.primary,
-    marginBottom: 4,
-  },
-  debugText: {
-    fontSize: 10,
-    color: theme.colors.textSecondary,
-    marginBottom: 2,
-    fontFamily: 'monospace',
-  },
-  errorText: {
-    color: theme.colors.error,
-  },
-  packActions: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  statusBadge: {
-    backgroundColor: theme.colors.success + '20',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+  installedInfo: {
     marginBottom: 8,
   },
-  statusText: {
+  installedText: {
     fontSize: 12,
     color: theme.colors.success,
     fontWeight: '500',
+  },
+  downloadStatusCard: {
+    backgroundColor: theme.colors.primary + '08',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.primary + '20',
+    marginBottom: 8,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  progressTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.colors.primary,
+  },
+  progressBars: {
+    gap: 6,
+  },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  progressLabel: {
+    fontSize: 10,
+    color: theme.colors.textSecondary,
+    fontWeight: '500',
+    width: 60,
+  },
+  progressBarContainer: {
+    flex: 1,
+    height: 4,
+    backgroundColor: theme.colors.border,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: theme.colors.primary,
+    borderRadius: 2,
+  },
+  progressPercent: {
+    fontSize: 10,
+    color: theme.colors.text,
+    fontWeight: '500',
+    width: 35,
+    textAlign: 'right',
+  },
+  packActions: {
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+    marginTop: 8,
+  },
+  installedActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionButton: {
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  actionButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: theme.colors.text,
+  },
+  deleteActionButton: {
+    borderColor: theme.colors.error + '50',
+    backgroundColor: theme.colors.error + '10',
+  },
+  deleteActionButtonText: {
+    color: theme.colors.error,
   },
   downloadButton: {
     backgroundColor: theme.colors.primary,
@@ -702,38 +917,6 @@ const createStyles = (theme: any) => StyleSheet.create({
     color: theme.colors.background,
     fontSize: 14,
     fontWeight: '600',
-  },
-  testButton: {
-    backgroundColor: theme.colors.primary + '20',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginBottom: 4,
-  },
-  testButtonText: {
-    color: theme.colors.primary,
-    fontSize: 10,
-    fontWeight: '500',
-  },
-  deleteButton: {
-    backgroundColor: theme.colors.error + '20',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  deleteButtonText: {
-    color: theme.colors.error,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  downloadProgress: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  progressText: {
-    fontSize: 12,
-    color: theme.colors.text,
-    fontWeight: '500',
   },
   cancelButton: {
     paddingHorizontal: 8,

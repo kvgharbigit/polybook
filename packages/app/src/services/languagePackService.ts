@@ -138,6 +138,25 @@ export class LanguagePackService {
   }
 
   /**
+   * Force reinstall a language pack (useful for companion packs with schema issues)
+   */
+  static async forceReinstall(
+    packId: string,
+    onProgress?: (download: LanguagePackDownload) => void
+  ): Promise<void> {
+    console.log(`📦 LanguagePackService: Force reinstalling pack ${packId}`);
+    
+    // Delete if exists
+    if (await this.isPackInstalled(packId)) {
+      await this.deletePack(packId);
+      console.log(`📦 LanguagePackService: Deleted existing pack ${packId} for reinstall`);
+    }
+    
+    // Download fresh
+    return this.startDownload(packId, onProgress);
+  }
+
+  /**
    * Start downloading a language pack
    */
   static async startDownload(
@@ -150,9 +169,45 @@ export class LanguagePackService {
         throw new Error(`Language pack ${packId} not found`);
       }
 
-      // Check if already installed
+      // Check if already installed - for companion packs, allow overwrite to ensure correct schema
       if (await this.isPackInstalled(packId)) {
-        throw new Error(`Language pack ${packId} is already installed`);
+        // For companion packs, we should overwrite to ensure correct database schema
+        const isCompanionPack = pack.hidden === true;
+        
+        if (isCompanionPack) {
+          console.log(`📦 LanguagePackService: Companion pack ${packId} already installed - overwriting to ensure correct schema`);
+          
+          // Delete the existing pack first
+          try {
+            await this.deletePack(packId);
+            console.log(`📦 LanguagePackService: Successfully deleted existing companion pack ${packId}`);
+          } catch (deleteError) {
+            console.error(`📦 LanguagePackService: Failed to delete existing pack ${packId}:`, deleteError);
+            // Continue anyway - installation might still work
+          }
+        } else {
+          console.log(`📦 LanguagePackService: Main pack ${packId} already installed - treating as successful completion`);
+          
+          // Create a successful completion notification for UI
+          const completedDownload: LanguagePackDownload = {
+            id: packId,
+            status: 'completed',
+            progress: 100,
+            downloadedBytes: pack.totalSize,
+            totalBytes: pack.totalSize,
+            retryCount: 0,
+            startedAt: new Date(),
+            completedAt: new Date()
+          };
+          
+          // Notify the progress callback that it's "completed"
+          if (onProgress) {
+            onProgress(completedDownload);
+          }
+          
+          console.log(`📦 LanguagePackService: Sent completion notification for already-installed pack ${packId}`);
+          return; // Return successfully without throwing
+        }
       }
 
       // Check if already downloading
@@ -212,10 +267,13 @@ export class LanguagePackService {
       // Use proper extension based on download URL
       const urlExtension = pack.downloadUrl.split('.').pop() || 'pack';
       const downloadPath = `${this.DOWNLOADS_DIRECTORY}${pack.id}.${urlExtension}`;
+      const isDirectSqlite = pack.downloadUrl.includes('wikdict.com') && urlExtension === 'sqlite3';
       
-      // Update status
+      // Update status and trigger initial UI update
       download.status = 'downloading';
+      download.progress = 0;
       this.updateDownloadProgress(download);
+      console.log(`📦 Download service: Initial download state set for ${pack.id}`);
 
       console.log(`📦 LanguagePackService: Downloading ${pack.name} to ${downloadPath}`);
       console.log(`📦 Download URL: ${pack.downloadUrl}`);
@@ -234,6 +292,7 @@ export class LanguagePackService {
           download.progress = Math.round((totalBytesWritten / totalBytesExpectedToWrite) * 70); // 70% for download
           
           console.log(`📦 Download progress: ${totalBytesWritten}/${totalBytesExpectedToWrite} bytes (${download.progress}%)`);
+          console.log(`📦 Calling UI progress callback for ${pack.id}...`);
           this.updateDownloadProgress(download);
         }
       );
@@ -267,12 +326,24 @@ export class LanguagePackService {
         throw new Error('Downloaded file is empty');
       }
 
-      // Verify checksum
-      download.status = 'extracting';
-      download.progress = 75;
-      this.updateDownloadProgress(download);
+      // Handle direct SQLite files vs ZIP extraction
+      if (isDirectSqlite) {
+        // Direct SQLite file - no extraction needed
+        download.status = 'extracting';
+        download.progress = 90;
+        console.log(`📦 Download service: Direct SQLite file - no extraction needed for ${pack.id}`);
+        this.updateDownloadProgress(download);
+        
+        await this.installDirectSqlite(pack, result.uri, download);
+      } else {
+        // ZIP file - needs extraction
+        download.status = 'extracting';
+        download.progress = 75;
+        console.log(`📦 Download service: Status changed to extracting for ${pack.id}`);
+        this.updateDownloadProgress(download);
 
-      await this.verifyAndInstall(pack, result.uri, download);
+        await this.verifyAndInstall(pack, result.uri, download);
+      }
 
     } catch (error) {
       download.status = 'failed';
@@ -280,6 +351,105 @@ export class LanguagePackService {
       this.updateDownloadProgress(download);
       
       console.error(`📦 LanguagePackService: Download failed for ${pack.id}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Install direct SQLite file (WikiDict format)
+   */
+  private static async installDirectSqlite(
+    pack: LanguagePackManifest,
+    downloadedFile: string,
+    download: LanguagePackDownload
+  ): Promise<void> {
+    try {
+      console.log(`📦 LanguagePackService: Installing direct SQLite file ${pack.name}`);
+      
+      // Create installation directory
+      const installDir = `${this.PACKS_DIRECTORY}${pack.id}/`;
+      const dirInfo = await FileSystem.getInfoAsync(installDir);
+      if (dirInfo.exists) {
+        console.log(`📦 Removing existing installation directory: ${installDir}`);
+        await FileSystem.deleteAsync(installDir, { idempotent: true });
+      }
+      
+      await FileSystem.makeDirectoryAsync(installDir, { intermediates: true });
+      console.log(`📦 Created install directory: ${installDir}`);
+
+      // Copy SQLite file to installation directory
+      const dictionaryPath = `${installDir}${pack.dictionary.filename}`;
+      await FileSystem.copyAsync({
+        from: downloadedFile,
+        to: dictionaryPath
+      });
+      
+      console.log(`📦 Copied SQLite file to: ${dictionaryPath}`);
+      
+      // Copy to expo-sqlite directory for access
+      const sqliteDir = `${FileSystem.documentDirectory}SQLite/`;
+      await FileSystem.makeDirectoryAsync(sqliteDir, { intermediates: true });
+      const sqliteDbPath = `${sqliteDir}${pack.dictionary.filename}`;
+      
+      await FileSystem.copyAsync({
+        from: dictionaryPath,
+        to: sqliteDbPath
+      });
+      
+      console.log(`📦 Copied to SQLite directory: ${sqliteDbPath}`);
+      
+      // Validate database
+      const fileInfo = await FileSystem.getInfoAsync(sqliteDbPath);
+      console.log(`📦 Final database file info:`, fileInfo);
+      
+      // Create installed pack record
+      const installedPack: InstalledLanguagePack = {
+        id: pack.id,
+        manifest: pack,
+        installedAt: new Date(),
+        dictionaryPath: dictionaryPath,
+        mlKitStatus: {
+          sourceToTarget: pack.mlKitSupport.sourceToTarget ? 'available' : 'error',
+          targetToSource: pack.mlKitSupport.targetToSource ? 'available' : 'error'
+        },
+        dictionaryLookups: 0,
+        translationCount: 0,
+        totalUsageTime: 0
+      };
+
+      // Save to metadata
+      await this.addInstalledPack(installedPack);
+
+      // Clean up download file
+      console.log(`📦 Cleaning up download file: ${downloadedFile}`);
+      await FileSystem.deleteAsync(downloadedFile, { idempotent: true });
+
+      // Mark as completed
+      download.status = 'completed';
+      download.progress = 100;
+      download.completedAt = new Date();
+      console.log(`📦 Direct SQLite installation completed for ${pack.id}`);
+      this.updateDownloadProgress(download);
+
+      console.log(`📦 LanguagePackService: Successfully installed ${pack.name}`);
+
+      // Reload databases to pick up the new pack
+      try {
+        const SQLiteDictionaryService = (await import('./sqliteDictionaryService')).default;
+        await SQLiteDictionaryService.reloadDatabases();
+        console.log(`📦 Database reload completed for ${pack.id}`);
+      } catch (error) {
+        console.error(`📦 Failed to reload databases after installing ${pack.id}:`, error);
+      }
+
+      // Clean up tracking
+      setTimeout(() => {
+        this.activeDownloads.delete(pack.id);
+        this.downloadCallbacks.delete(pack.id);
+      }, 2000);
+
+    } catch (error) {
+      console.error(`📦 LanguagePackService: Direct SQLite installation failed for ${pack.id}:`, error);
       throw error;
     }
   }
@@ -515,6 +685,7 @@ export class LanguagePackService {
       }
       
       download.progress = 90;
+      console.log(`📦 Download service: Progress 90% for ${pack.id}`);
       this.updateDownloadProgress(download);
       
       // Note: Translation models are handled by ML Kit service automatically
@@ -557,13 +728,23 @@ export class LanguagePackService {
       console.log(`📦 Cleaning up download file: ${downloadedFile}`);
       await FileSystem.deleteAsync(downloadedFile, { idempotent: true });
 
-      // Mark as completed
+      // Mark as completed and notify UI
       download.status = 'completed';
       download.progress = 100;
       download.completedAt = new Date();
+      console.log(`📦 Download service: Completed ${pack.id} - notifying UI`);
       this.updateDownloadProgress(download);
 
       console.log(`📦 LanguagePackService: Successfully installed ${pack.name}`);
+
+      // Reload databases to pick up the new pack
+      try {
+        const SQLiteDictionaryService = (await import('./sqliteDictionaryService')).default;
+        await SQLiteDictionaryService.reloadDatabases();
+        console.log(`📦 Database reload completed for ${pack.id}`);
+      } catch (error) {
+        console.error(`📦 Failed to reload databases after installing ${pack.id}:`, error);
+      }
 
       // Clean up tracking
       setTimeout(() => {
@@ -594,6 +775,54 @@ export class LanguagePackService {
       console.log(`📦 LanguagePackService: Successfully deleted pack ${packId}`);
     } catch (error) {
       console.error(`📦 LanguagePackService: Error deleting pack ${packId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a language pack and its companion pack (if any)
+   */
+  static async deletePackWithCompanion(packId: string): Promise<{ deletedPacks: string[], totalSize: number }> {
+    try {
+      console.log(`📦 LanguagePackService: Deleting pack with companion: ${packId}`);
+      
+      const installedPacks = await this.getInstalledPacks();
+      const mainPack = installedPacks.find(p => p.id === packId);
+      
+      if (!mainPack) {
+        throw new Error(`Pack ${packId} not found`);
+      }
+      
+      const deletedPacks: string[] = [];
+      let totalSize = 0;
+      
+      // Delete main pack
+      await this.deletePack(packId);
+      deletedPacks.push(packId);
+      totalSize += mainPack.manifest.totalSize;
+      
+      // Delete companion pack if it exists
+      const companionPackId = mainPack.manifest.companionPackId;
+      if (companionPackId && await this.isPackInstalled(companionPackId)) {
+        const companionPack = installedPacks.find(p => p.id === companionPackId);
+        try {
+          await this.deletePack(companionPackId);
+          deletedPacks.push(companionPackId);
+          if (companionPack) {
+            totalSize += companionPack.manifest.totalSize;
+          }
+          console.log(`📦 LanguagePackService: Successfully deleted companion pack ${companionPackId}`);
+        } catch (companionError) {
+          console.error(`📦 LanguagePackService: Failed to delete companion pack ${companionPackId}:`, companionError);
+          // Don't throw - main pack was deleted successfully
+        }
+      }
+      
+      console.log(`📦 LanguagePackService: Successfully deleted packs: ${deletedPacks.join(', ')}`);
+      return { deletedPacks, totalSize };
+      
+    } catch (error) {
+      console.error(`📦 LanguagePackService: Error deleting pack with companion ${packId}:`, error);
       throw error;
     }
   }
