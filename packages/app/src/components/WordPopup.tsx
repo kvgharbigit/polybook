@@ -102,6 +102,142 @@ export const WordPopup: React.FC<WordPopupProps> = ({
 
   // Note: Sentence translation now happens automatically in performAllTranslations()
 
+  // Smart sentence chunking with progressive or batched translation
+  const translateLongSentence = async (
+    sentence: string, 
+    sourceLanguage: string, 
+    targetLanguage: string,
+    progressiveMode: boolean = true
+  ): Promise<{ text: string }> => {
+    console.log(`🔄 Starting chunked translation (progressive: ${progressiveMode})`);
+    
+    // Smart chunking at sentence boundaries, then clause boundaries
+    const chunks = chunkSentenceIntelligently(sentence);
+    console.log(`🔄 Split into ${chunks.length} chunks:`, chunks.map(c => `"${c.substring(0, 50)}..."`));
+    
+    if (progressiveMode) {
+      // Progressive mode: Show chunks as they complete
+      return translateChunksProgressively(chunks, sourceLanguage, targetLanguage);
+    } else {
+      // Batched mode: Wait for all chunks then combine
+      return translateChunksBatched(chunks, sourceLanguage, targetLanguage);
+    }
+  };
+
+  const chunkSentenceIntelligently = (sentence: string): string[] => {
+    // For very long sentences, use conservative chunking to avoid too many API calls
+    
+    // First try to split at sentence boundaries (. ! ?) - keep large chunks
+    let chunks = sentence.split(/(?<=[.!?])\s+/).filter(chunk => chunk.trim().length > 0);
+    
+    // Only split further if chunks are extremely long (400+ chars)
+    chunks = chunks.flatMap(chunk => {
+      if (chunk.length > 400) {
+        // Split at major clause boundaries (; : —)
+        return chunk.split(/(?<=[;:—])\s+/).filter(c => c.trim().length > 0);
+      }
+      return [chunk];
+    });
+    
+    // Final fallback only for truly massive chunks (300+ chars)
+    chunks = chunks.flatMap(chunk => {
+      if (chunk.length > 300) {
+        // Split at comma boundaries as last resort
+        const commaSplit = chunk.split(/(?<=,)\s+/).filter(c => c.trim().length > 0);
+        // But don't create too many tiny chunks
+        if (commaSplit.length <= 4) {
+          return commaSplit;
+        }
+      }
+      return [chunk];
+    });
+    
+    console.log(`🔄 Smart chunking: ${sentence.length} chars → ${chunks.length} chunks`);
+    return chunks.filter(chunk => chunk.trim().length > 0);
+  };
+
+  const translateChunksProgressively = async (
+    chunks: string[], 
+    sourceLanguage: string, 
+    targetLanguage: string
+  ): Promise<{ text: string }> => {
+    console.log(`🔄 Progressive translation starting...`);
+    
+    // Start translating all chunks in parallel
+    const chunkPromises = chunks.map(async (chunk, index) => {
+      try {
+        console.log(`🔄 Translating chunk ${index + 1}/${chunks.length}: "${chunk.substring(0, 50)}..."`);
+        const result = await Translation.translate(chunk, {
+          from: sourceLanguage,
+          to: targetLanguage,
+          timeoutMs: 10000
+        });
+        console.log(`🔄 ✅ Chunk ${index + 1} complete: "${result.text.substring(0, 50)}..."`);
+        return { index, text: result.text };
+      } catch (error) {
+        console.log(`🔄 ❌ Chunk ${index + 1} failed:`, error.message);
+        return { index, text: `[Translation failed for part ${index + 1}]` };
+      }
+    });
+    
+    // Update UI as chunks complete
+    const completedChunks: { index: number; text: string }[] = [];
+    
+    for (const chunkPromise of chunkPromises) {
+      const result = await chunkPromise;
+      completedChunks.push(result);
+      completedChunks.sort((a, b) => a.index - b.index);
+      
+      // Update UI with partial translation + progress indicator
+      const partialTranslation = completedChunks.map(c => c.text).join(' ');
+      const progressIndicator = completedChunks.length < chunks.length 
+        ? ` [${completedChunks.length}/${chunks.length}...]` 
+        : '';
+      setTranslationResult(partialTranslation + progressIndicator);
+      console.log(`🔄 Progressive update: ${completedChunks.length}/${chunks.length} chunks ready`);
+    }
+    
+    // Remove progress indicator and return final clean translation
+    const finalTranslation = completedChunks.map(c => c.text).join(' ');
+    setTranslationResult(finalTranslation); // Update with clean final version
+    return { text: finalTranslation };
+  };
+
+  const translateChunksBatched = async (
+    chunks: string[], 
+    sourceLanguage: string, 
+    targetLanguage: string
+  ): Promise<{ text: string }> => {
+    console.log(`🔄 Batched translation starting...`);
+    
+    try {
+      const chunkPromises = chunks.map((chunk, index) => 
+        Translation.translate(chunk, {
+          from: sourceLanguage,
+          to: targetLanguage,
+          timeoutMs: 10000
+        }).then(result => ({
+          index,
+          text: result.text
+        })).catch(error => ({
+          index,
+          text: `[Part ${index + 1} failed]`
+        }))
+      );
+      
+      const results = await Promise.all(chunkPromises);
+      results.sort((a, b) => a.index - b.index);
+      
+      const combinedTranslation = results.map(r => r.text).join(' ');
+      console.log(`🔄 ✅ Batched translation complete: ${combinedTranslation.substring(0, 100)}...`);
+      
+      return { text: combinedTranslation };
+    } catch (error) {
+      console.log(`🔄 ❌ Batched translation failed:`, error);
+      throw error;
+    }
+  };
+
   const getAlternativeTranslations = async (word: string): Promise<string[]> => {
     try {
       // Try to get alternatives from our local WikiDict database
@@ -364,11 +500,17 @@ export const WordPopup: React.FC<WordPopupProps> = ({
           console.log(`🎯 WordPopup: Full sentence to translate (${cleanedSentence.length} chars): "${cleanedSentence}"`);
           console.log(`🎯 WordPopup: Translation params: ${sourceLanguage} → ${targetLanguage}, timeout: 8000ms`);
           
-          sentencePromise = Translation.translate(cleanedSentence, {
-            from: sourceLanguage,
-            to: targetLanguage,
-            timeoutMs: 8000
-          });
+          // Only chunk very long sentences (500+ chars) that might hit API limits
+          if (cleanedSentence.length > 500) {
+            console.log(`🎯 WordPopup: Very long sentence detected (${cleanedSentence.length} chars), using dynamic chunked translation`);
+            sentencePromise = translateLongSentence(cleanedSentence, sourceLanguage, targetLanguage, true);
+          } else {
+            sentencePromise = Translation.translate(cleanedSentence, {
+              from: sourceLanguage,
+              to: targetLanguage,
+              timeoutMs: 10000 // Increased timeout for longer sentences
+            });
+          }
           promises.push(sentencePromise);
         } else {
           console.log(`🎯 WordPopup: Skipping sentence translation (metadata detected)`);
